@@ -10,7 +10,15 @@ const _geistMono = Geist_Mono({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: 'Nivixpe - Internal Management System',
   description: 'Nivixpe Private Limited - Internal Dashboard and Management System',
-  generator: 'v0.app',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'Nivixpe',
+  },
+  formatDetection: {
+    telephone: false,
+  },
   icons: {
     icon: [
       {
