@@ -161,4 +161,13 @@ export default defineSchema({
   })
     .index("by_user", ["userId"])
     .index("by_user_and_status", ["userId", "isRead"]),
+
+  // Push Subscriptions for Web Push
+  pushSubscriptions: defineTable({
+    userId: v.string(), // User email
+    subscription: v.any(), // The full subscription object from the browser
+    deviceType: v.optional(v.string()),
+    createdAt: v.string(),
+  })
+    .index("by_user", ["userId"]),
 });

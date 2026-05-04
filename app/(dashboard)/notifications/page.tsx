@@ -8,6 +8,7 @@ import { useAuth } from '@/app/providers';
 import { Bell, CheckCircle, AlertCircle, Clock, Users, FileText, Briefcase, Calendar } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import Link from 'next/link';
+import { NotificationSetup } from '@/components/notification-setup';
 
 export default function NotificationsPage() {
   const { user } = useAuth();
@@ -61,6 +62,8 @@ export default function NotificationsPage() {
       />
 
       <div className="p-6 space-y-6 max-w-3xl mx-auto">
+        <NotificationSetup />
+        
         {/* Unread Section */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">

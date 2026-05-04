@@ -87,3 +87,30 @@ export const createMultiple = mutation({
     }
   },
 });
+
+// Save a new push subscription
+export const saveSubscription = mutation({
+  args: {
+    userId: v.string(),
+    subscription: v.any(),
+  },
+  handler: async (ctx, args) => {
+    // Remove old subscriptions for this user on the same device (if possible) or just keep all
+    const existing = await ctx.db
+      .query("pushSubscriptions")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
+    
+    // Simple deduplication: if the subscription string is the same, don't re-insert
+    const subString = JSON.stringify(args.subscription);
+    if (existing.some(s => JSON.stringify(s.subscription) === subString)) {
+      return;
+    }
+
+    await ctx.db.insert("pushSubscriptions", {
+      userId: args.userId,
+      subscription: args.subscription,
+      createdAt: new Date().toISOString(),
+    });
+  },
+});
