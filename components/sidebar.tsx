@@ -34,6 +34,7 @@ const NAV_ITEMS = [
   { href: '/ujjwal-tracker', label: 'Ujjwal Tracker', icon: TrendingUp },
   { href: '/work-allocation', label: 'Work Allocation', icon: Truck },
   { href: '/attendance', label: 'Attendance', icon: Clock },
+  { href: '/attendance-history', label: 'Attendance History', icon: FileText },
   { href: '/leave-management', label: 'Leave Management', icon: Calendar },
   { href: '/meetings', label: 'Meetings & MOM', icon: FileText },
   { href: '/legal', label: 'Legal Module', icon: AlertCircle },

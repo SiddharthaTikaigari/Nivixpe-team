@@ -61,3 +61,27 @@ export const update = mutation({
     await ctx.db.patch(id, updates as any);
   },
 });
+
+// Deduplicate team members by email (Keep the first one found)
+export const deduplicate = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const all = await ctx.db.query("teamMembers").collect();
+    const seen = new Set();
+    const toDelete = [];
+    
+    for (const member of all) {
+      if (seen.has(member.email)) {
+        toDelete.push(member._id);
+      } else {
+        seen.add(member.email);
+      }
+    }
+    
+    for (const id of toDelete) {
+      await ctx.db.delete(id);
+    }
+    
+    return toDelete.length;
+  },
+});

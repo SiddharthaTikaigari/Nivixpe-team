@@ -1,11 +1,19 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 
-// Get all attendance records
+// Get all attendance records (limited)
 export const getAll = query({
   args: {},
   handler: async (ctx) => {
     return await ctx.db.query("attendanceRecords").order("desc").take(100);
+  },
+});
+
+// Get all attendance history for reporting
+export const getAllHistory = query({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.db.query("attendanceRecords").order("desc").take(500);
   },
 });
 
@@ -59,5 +67,30 @@ export const update = mutation({
   handler: async (ctx, args) => {
     const { id, ...updates } = args;
     await ctx.db.patch(id, updates as any);
+  },
+});
+
+// Deduplicate attendance records by date and email
+export const deduplicate = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const all = await ctx.db.query("attendanceRecords").collect();
+    const seen = new Set();
+    const toDelete = [];
+    
+    for (const record of all) {
+      const key = `${record.date}-${record.email}`;
+      if (seen.has(key)) {
+        toDelete.push(record._id);
+      } else {
+        seen.add(key);
+      }
+    }
+    
+    for (const id of toDelete) {
+      await ctx.db.delete(id);
+    }
+    
+    return toDelete.length;
   },
 });

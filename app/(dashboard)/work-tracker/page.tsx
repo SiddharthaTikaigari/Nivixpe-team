@@ -19,6 +19,7 @@ export default function WorkTrackerPage() {
     dueDate: '',
     priority: 'medium' as 'high' | 'medium' | 'low',
     comments: '',
+    coordinationWith: '',
   });
   
   // Real-time queries
@@ -347,11 +348,26 @@ export default function WorkTrackerPage() {
                     onChange={(e) => setTaskForm({ ...taskForm, comments: e.target.value })}
                   />
                 </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Coordination With (Optional)</label>
+                  <select
+                    className="w-full px-3 py-2 border rounded bg-white"
+                    value={taskForm.coordinationWith}
+                    onChange={(e) => setTaskForm({ ...taskForm, coordinationWith: e.target.value })}
+                  >
+                    <option value="">None</option>
+                    {TEAM_MEMBERS.filter(m => m.name !== selectedAssignee).map(member => (
+                      <option key={member.id} value={member.name}>
+                        {member.name} ({member.role})
+                      </option>
+                    ))}
+                  </select>
+                </div>
                 <div className="flex gap-2 justify-end">
                   <button
                     onClick={() => {
                       setShowAddTaskModal(false);
-                      setTaskForm({ title: '', dueDate: '', priority: 'medium', comments: '' });
+                      setTaskForm({ title: '', dueDate: '', priority: 'medium', comments: '', coordinationWith: '' });
                     }}
                     className="px-4 py-2 border rounded hover:bg-muted"
                   >
@@ -379,12 +395,13 @@ export default function WorkTrackerPage() {
                           dueDate: taskForm.dueDate,
                           priority: taskForm.priority,
                           comments: taskForm.comments,
+                          coordinationWith: taskForm.coordinationWith || undefined,
                           createdBy: user?.name || 'Unknown',
                           owner: user?.name,
                         });
                         
                         setShowAddTaskModal(false);
-                        setTaskForm({ title: '', dueDate: '', priority: 'medium', comments: '' });
+                        setTaskForm({ title: '', dueDate: '', priority: 'medium', comments: '', coordinationWith: '' });
                         alert('Task created successfully!');
                       } catch (error) {
                         console.error('Error creating task:', error);

@@ -8,7 +8,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AddWorkForm } from '@/components/add-work-form';
 import { TeamWorkOverview } from '@/components/team-work-overview';
 import { TEAM_MEMBERS, WORK_TASKS } from '@/lib/mock-data';
-import { AlertCircle, CheckCircle, Clock, Shield, Users } from 'lucide-react';
+import { AlertCircle, CheckCircle, Clock, Shield, Users, RefreshCw } from 'lucide-react';
+import { useMutation } from 'convex/react';
+import { api } from '@/convex/_generated/api';
+import { cn } from '@/lib/utils';
 
 interface WorkItem {
   id: string;
@@ -26,6 +29,27 @@ export default function AdminPage() {
   const router = useRouter();
   const [workItems, setWorkItems] = useState<WorkItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isCleaning, setIsCleaning] = useState(false);
+
+  // Mutations
+  const deduplicateMembers = useMutation(api.teamMembers.deduplicate);
+  const deduplicateAttendance = useMutation(api.attendanceRecords.deduplicate);
+
+  const handleCleanup = async () => {
+    if (!confirm('This will remove duplicate entries from the database. Proceed?')) return;
+    
+    setIsCleaning(true);
+    try {
+      const membersCleaned = await deduplicateMembers();
+      const attendanceCleaned = await deduplicateAttendance();
+      alert(`Cleanup successful!\n- Removed ${membersCleaned} duplicate members\n- Removed ${attendanceCleaned} duplicate attendance records`);
+    } catch (error) {
+      console.error('Cleanup failed:', error);
+      alert('Cleanup failed. See console for details.');
+    } finally {
+      setIsCleaning(false);
+    }
+  };
 
   useEffect(() => {
     // Check if user is CEO (super admin)
@@ -124,6 +148,16 @@ export default function AdminPage() {
             <p className="text-sm text-purple-900">
               Welcome to the admin panel, {user?.name}. You have full control over all team work assignments. Add new work for any team member, monitor progress, and manage organizational tasks.
             </p>
+            <div className="mt-4">
+              <button
+                onClick={handleCleanup}
+                disabled={isCleaning}
+                className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition-all shadow-lg shadow-purple-200 disabled:opacity-50"
+              >
+                <RefreshCw className={cn("h-4 w-4", isCleaning && "animate-spin")} />
+                {isCleaning ? 'Cleaning...' : 'Cleanup Duplicate Data'}
+              </button>
+            </div>
           </CardContent>
         </Card>
 
