@@ -47,7 +47,27 @@ export const create = mutation({
     status: v.string(),
   },
   handler: async (ctx, args) => {
-    return await ctx.db.insert("proofOfWork", args as any);
+    const powId = await ctx.db.insert("proofOfWork", args as any);
+    
+    // Notify CEO/Admin about new POW submission
+    const ceo = await ctx.db
+      .query("teamMembers")
+      .filter((q) => q.eq(q.field("role"), "CEO"))
+      .unique();
+    
+    if (ceo) {
+      await ctx.db.insert("notifications", {
+        userId: ceo.email,
+        title: "New Proof of Work Submitted",
+        message: `${args.submittedBy} has submitted proof for task: ${args.taskTitle}`,
+        type: "pow",
+        isRead: false,
+        createdAt: new Date().toISOString(),
+        link: "/proof-of-work",
+      });
+    }
+
+    return powId;
   },
 });
 
@@ -61,6 +81,19 @@ export const updateStatus = mutation({
   },
   handler: async (ctx, args) => {
     const { id, ...updates } = args;
+    const pow = await ctx.db.get(id);
     await ctx.db.patch(id, updates as any);
+
+    if (pow) {
+      await ctx.db.insert("notifications", {
+        userId: pow.submittedByEmail,
+        title: `Proof of Work ${updates.status.charAt(0).toUpperCase() + updates.status.slice(1)}`,
+        message: `Your proof of work for "${pow.taskTitle}" has been ${updates.status}.`,
+        type: "pow",
+        isRead: false,
+        createdAt: new Date().toISOString(),
+        link: "/proof-of-work",
+      });
+    }
   },
 });

@@ -50,7 +50,29 @@ export const create = mutation({
     }))),
   },
   handler: async (ctx, args) => {
-    return await ctx.db.insert("meetings", args as any);
+    const meetingId = await ctx.db.insert("meetings", args as any);
+    
+    // Notify all attendees
+    for (const attendeeName of args.attendees) {
+      const member = await ctx.db
+        .query("teamMembers")
+        .filter((q) => q.eq(q.field("name"), attendeeName))
+        .unique();
+      
+      if (member) {
+        await ctx.db.insert("notifications", {
+          userId: member.email,
+          title: "New Meeting Scheduled",
+          message: `You have been invited to: ${args.title} on ${args.date} at ${args.time}.`,
+          type: "meeting",
+          isRead: false,
+          createdAt: new Date().toISOString(),
+          link: "/meetings",
+        });
+      }
+    }
+
+    return meetingId;
   },
 });
 

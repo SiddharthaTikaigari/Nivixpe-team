@@ -10,8 +10,10 @@
 
 import type * as attendanceRecords from "../attendanceRecords.js";
 import type * as clearLeaveRequests from "../clearLeaveRequests.js";
+import type * as crons from "../crons.js";
 import type * as leaveRequests from "../leaveRequests.js";
 import type * as meetings from "../meetings.js";
+import type * as notifications from "../notifications.js";
 import type * as proofOfWork from "../proofOfWork.js";
 import type * as removeDuplicateTasks from "../removeDuplicateTasks.js";
 import type * as seed from "../seed.js";
@@ -27,8 +29,10 @@ import type {
 declare const fullApi: ApiFromModules<{
   attendanceRecords: typeof attendanceRecords;
   clearLeaveRequests: typeof clearLeaveRequests;
+  crons: typeof crons;
   leaveRequests: typeof leaveRequests;
   meetings: typeof meetings;
+  notifications: typeof notifications;
   proofOfWork: typeof proofOfWork;
   removeDuplicateTasks: typeof removeDuplicateTasks;
   seed: typeof seed;

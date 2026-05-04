@@ -142,4 +142,23 @@ export default defineSchema({
     .index("by_submitted_by", ["submittedBy"])
     .index("by_status", ["status"])
     .index("by_submitted_by_and_status", ["submittedBy", "status"]),
+
+  // Notifications
+  notifications: defineTable({
+    userId: v.string(), // Email of the user receiving the notification
+    title: v.string(),
+    message: v.string(),
+    type: v.union(
+      v.literal("attendance"),
+      v.literal("work"),
+      v.literal("meeting"),
+      v.literal("leave"),
+      v.literal("pow")
+    ),
+    isRead: v.boolean(),
+    createdAt: v.string(),
+    link: v.optional(v.string()), // Link to the relevant page
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_and_status", ["userId", "isRead"]),
 });

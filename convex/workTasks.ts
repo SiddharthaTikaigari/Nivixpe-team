@@ -50,7 +50,27 @@ export const create = mutation({
     createdBy: v.string(),
   },
   handler: async (ctx, args) => {
-    return await ctx.db.insert("workTasks", args as any);
+    const taskId = await ctx.db.insert("workTasks", args as any);
+    
+    // Notify the assignee
+    const assignee = await ctx.db
+      .query("teamMembers")
+      .filter((q) => q.eq(q.field("name"), args.assignee))
+      .unique();
+    
+    if (assignee) {
+      await ctx.db.insert("notifications", {
+        userId: assignee.email,
+        title: "New Task Assigned",
+        message: `You have been assigned a new task: ${args.title}`,
+        type: "work",
+        isRead: false,
+        createdAt: new Date().toISOString(),
+        link: "/work-tracker",
+      });
+    }
+
+    return taskId;
   },
 });
 
@@ -64,7 +84,24 @@ export const update = mutation({
   },
   handler: async (ctx, args) => {
     const { id, ...updates } = args;
+    const oldTask = await ctx.db.get(id);
     await ctx.db.patch(id, updates as any);
+
+    // Notify about status change
+    if (oldTask && updates.status && oldTask.status !== updates.status) {
+      // Notify the creator if completed
+      if (updates.status === "completed") {
+        await ctx.db.insert("notifications", {
+          userId: oldTask.createdBy, // Email of the creator
+          title: "Task Completed",
+          message: `${oldTask.assignee} has completed the task: ${oldTask.title}`,
+          type: "work",
+          isRead: false,
+          createdAt: new Date().toISOString(),
+          link: "/work-tracker",
+        });
+      }
+    }
   },
 });
 

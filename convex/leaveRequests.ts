@@ -46,7 +46,27 @@ export const create = mutation({
     approvedBy: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    return await ctx.db.insert("leaveRequests", args as any);
+    const leaveId = await ctx.db.insert("leaveRequests", args as any);
+    
+    // Notify CEO/Admin about new leave request
+    const ceo = await ctx.db
+      .query("teamMembers")
+      .filter((q) => q.eq(q.field("role"), "CEO"))
+      .unique();
+    
+    if (ceo) {
+      await ctx.db.insert("notifications", {
+        userId: ceo.email,
+        title: "New Leave Request",
+        message: `${args.employeeName} has requested ${args.type} leave from ${args.startDate} to ${args.endDate}.`,
+        type: "leave",
+        isRead: false,
+        createdAt: new Date().toISOString(),
+        link: "/leave-management",
+      });
+    }
+
+    return leaveId;
   },
 });
 
@@ -59,7 +79,20 @@ export const updateStatus = mutation({
   },
   handler: async (ctx, args) => {
     const { id, ...updates } = args;
+    const leave = await ctx.db.get(id);
     await ctx.db.patch(id, updates as any);
+
+    if (leave) {
+      await ctx.db.insert("notifications", {
+        userId: leave.employeeEmail,
+        title: `Leave Request ${updates.status.charAt(0).toUpperCase() + updates.status.slice(1)}`,
+        message: `Your leave request from ${leave.startDate} to ${leave.endDate} has been ${updates.status}.`,
+        type: "leave",
+        isRead: false,
+        createdAt: new Date().toISOString(),
+        link: "/leave-management",
+      });
+    }
   },
 });
 

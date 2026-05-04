@@ -52,7 +52,22 @@ export const create = mutation({
     approval: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    return await ctx.db.insert("attendanceRecords", args as any);
+    const attendanceId = await ctx.db.insert("attendanceRecords", args as any);
+    
+    // Notify if late
+    if (args.status === "late") {
+      await ctx.db.insert("notifications", {
+        userId: args.email,
+        title: "Late Arrival",
+        message: `You logged in at ${args.loginTime}, which is marked as late.`,
+        type: "attendance",
+        isRead: false,
+        createdAt: new Date().toISOString(),
+        link: "/attendance",
+      });
+    }
+
+    return attendanceId;
   },
 });
 
@@ -66,7 +81,20 @@ export const update = mutation({
   },
   handler: async (ctx, args) => {
     const { id, ...updates } = args;
+    const attendance = await ctx.db.get(id);
     await ctx.db.patch(id, updates as any);
+
+    if (attendance && updates.logoutTime) {
+      await ctx.db.insert("notifications", {
+        userId: attendance.email,
+        title: "Logout Recorded",
+        message: `You have successfully logged out at ${updates.logoutTime}.`,
+        type: "attendance",
+        isRead: false,
+        createdAt: new Date().toISOString(),
+        link: "/attendance",
+      });
+    }
   },
 });
 
@@ -92,5 +120,30 @@ export const deduplicate = mutation({
     }
     
     return toDelete.length;
+  },
+});
+
+// Send daily attendance reminders to all active members who haven't logged in today
+export const sendDailyReminders = mutation({
+  args: { date: v.string() },
+  handler: async (ctx, args) => {
+    const allMembers = await ctx.db.query("teamMembers").filter(q => q.eq(q.field("status"), "active")).collect();
+    const todayAttendance = await ctx.db.query("attendanceRecords").filter(q => q.eq(q.field("date"), args.date)).collect();
+    
+    const loggedInEmails = new Set(todayAttendance.map(a => a.email));
+    
+    for (const member of allMembers) {
+      if (!loggedInEmails.has(member.email)) {
+        await ctx.db.insert("notifications", {
+          userId: member.email,
+          title: "Attendance Reminder",
+          message: "Don't forget to mark your attendance for today!",
+          type: "attendance",
+          isRead: false,
+          createdAt: new Date().toISOString(),
+          link: "/attendance",
+        });
+      }
+    }
   },
 });
