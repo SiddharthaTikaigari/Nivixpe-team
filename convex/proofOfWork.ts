@@ -53,7 +53,7 @@ export const create = mutation({
     const ceo = await ctx.db
       .query("teamMembers")
       .filter((q) => q.eq(q.field("role"), "CEO"))
-      .unique();
+      .first();
     
     if (ceo) {
       await ctx.db.insert("notifications", {
