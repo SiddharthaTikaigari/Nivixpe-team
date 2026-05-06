@@ -94,18 +94,24 @@ The system implements a comprehensive RBAC system where team heads can assign ta
 
 ### 6. COO - Chief Operating Officer (Siddharatha)
 **Operations Lead:**
-- ✅ View Operations and Business Team tasks
-- ✅ Assign tasks to Operations team
+- ✅ View Operations, Business, Legal, Marketing, and Design Team tasks
+- ✅ Assign tasks to Operations, Business, Legal, Marketing, and Design teams
 - ✅ Access Tech Panel
 - ✅ Cross-team coordination
 
 **Can Assign Tasks To:**
 - Operations Team members
-- Business Team members (coordination)
+- Business Team members
+- Legal Team members
+- Marketing Team members
+- Design Team members
 
 **Can View:**
 - Operations work
 - Business Team tasks
+- Legal Team tasks
+- Marketing Team tasks
+- Design Team tasks
 - Tech Panel data
 
 ---
@@ -161,7 +167,7 @@ The system implements a comprehensive RBAC system where team heads can assign ta
 3. **CSO (Swaraag)** → Can assign to Business Team only
 4. **CMO (Abhiram)** → Can assign to Marketing Team only
 5. **DCMO (Bhavika)** → Can assign to Marketing Team only
-6. **COO (Siddharatha)** → Can assign to Operations and Business Team
+6. **COO (Siddharatha)** → Can assign to Business, Legal, Operations, Marketing, and Design Teams
 7. **Legal (Kashish)** → Can assign to Legal Team only
 
 ### Task Assignment Flow:
@@ -224,6 +230,30 @@ CEO/CTO
 
 ---
 
+## Meeting Management Authority
+
+### Can Schedule Meetings & Upload MOM:
+
+1. **CEO (Sahith)** → Full meeting management access
+   - Schedule meetings with any attendees
+   - Upload Minutes of Meeting (MOM)
+   - Mark meetings as completed
+   - Add decisions and action items
+
+2. **COO (Siddharatha)** → Full meeting management access
+   - Schedule meetings with any attendees
+   - Upload Minutes of Meeting (MOM)
+   - Mark meetings as completed
+   - Add decisions and action items
+
+### All Other Users:
+- View scheduled meetings
+- View completed meetings with MOM
+- See meetings they are invited to
+- Cannot schedule or upload MOM
+
+---
+
 ## Dynamic Updates
 
 ### Real-Time Visibility:
@@ -251,7 +281,7 @@ CEO/CTO
 |--------|-----|-----|-----|-----|------|-----|-------|------|-----------|
 | Dashboard | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Team Directory | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Work Tracker | ✅ All | ✅ All | ✅ Business | ✅ Marketing | ✅ Marketing | ✅ Ops | ✅ Legal | ✅ Own | ✅ Own |
+| Work Tracker | ✅ All | ✅ All | ✅ Business | ✅ Marketing | ✅ Marketing | ✅ Business/Legal/Ops/Marketing/Design | ✅ Legal | ✅ Own | ✅ Own |
 | Ujjwal Tracker | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ |
 | Work Allocation | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ |
 | Attendance | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |

@@ -89,3 +89,15 @@ export const update = mutation({
     await ctx.db.patch(id, updates as any);
   },
 });
+
+// Clear all meetings (admin only)
+export const clearAll = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const allMeetings = await ctx.db.query("meetings").collect();
+    for (const meeting of allMeetings) {
+      await ctx.db.delete(meeting._id);
+    }
+    return { deleted: allMeetings.length };
+  },
+});

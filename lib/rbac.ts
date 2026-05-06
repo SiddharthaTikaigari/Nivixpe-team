@@ -164,8 +164,8 @@ export function canAssignTasksTo(user: User | null, targetMember: any): boolean 
   // DCMO (Bhavika) can assign to Marketing team
   if (user.role === 'DCMO' && targetMember.team === 'Marketing') return true;
   
-  // COO can assign to Operations, Marketing, and Design teams
-  if (user.role === 'COO' && (targetMember.team === 'Marketing' || targetMember.team === 'Design' || targetMember.department === 'Operations')) return true;
+  // COO can assign to Business, Legal, Operations, Marketing, and Design teams
+  if (user.role === 'COO' && (targetMember.team === 'Business' || targetMember.team === 'Legal' || targetMember.team === 'Marketing' || targetMember.team === 'Design' || targetMember.department === 'Operations')) return true;
   
   // Legal head can assign to Legal team
   if (user.role === 'Legal' && targetMember.team === 'Legal') return true;
@@ -197,9 +197,9 @@ export function getAssignableMembers(user: User | null, allMembers: any[]): any[
     return allMembers.filter(m => m.team === 'Marketing');
   }
   
-  // COO can assign to Operations, Marketing, and Design teams
+  // COO can assign to Business, Legal, Operations, Marketing, and Design teams
   if (user.role === 'COO') {
-    return allMembers.filter(m => m.team === 'Marketing' || m.team === 'Design' || m.department === 'Operations');
+    return allMembers.filter(m => m.team === 'Business' || m.team === 'Legal' || m.team === 'Marketing' || m.team === 'Design' || m.department === 'Operations');
   }
   
   // Legal can assign to Legal team
@@ -233,7 +233,7 @@ export function canViewTeamTasks(user: User | null, taskAssignee: string, allMem
   if (user.role === 'CSO' && assigneeMember.team === 'Business') return true;
   if (user.role === 'CMO' && (assigneeMember.team === 'Marketing' || assigneeMember.team === 'Design')) return true;
   if (user.role === 'DCMO' && assigneeMember.team === 'Marketing') return true;
-  if (user.role === 'COO' && (assigneeMember.team === 'Marketing' || assigneeMember.team === 'Design' || assigneeMember.department === 'Operations')) return true;
+  if (user.role === 'COO' && (assigneeMember.team === 'Business' || assigneeMember.team === 'Legal' || assigneeMember.team === 'Marketing' || assigneeMember.team === 'Design' || assigneeMember.department === 'Operations')) return true;
   if (user.role === 'Legal' && assigneeMember.team === 'Legal') return true;
   
   return false;

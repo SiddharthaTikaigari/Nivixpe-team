@@ -10,6 +10,7 @@
 
 import type * as attendanceRecords from "../attendanceRecords.js";
 import type * as clearLeaveRequests from "../clearLeaveRequests.js";
+import type * as clearMeetings from "../clearMeetings.js";
 import type * as crons from "../crons.js";
 import type * as leaveRequests from "../leaveRequests.js";
 import type * as meetings from "../meetings.js";
@@ -29,6 +30,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   attendanceRecords: typeof attendanceRecords;
   clearLeaveRequests: typeof clearLeaveRequests;
+  clearMeetings: typeof clearMeetings;
   crons: typeof crons;
   leaveRequests: typeof leaveRequests;
   meetings: typeof meetings;

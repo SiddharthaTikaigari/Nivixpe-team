@@ -85,19 +85,6 @@ export function LoginForm() {
             {isLoading ? 'Signing in...' : 'Sign In'}
           </Button>
         </form>
-
-        <div className="mt-6 p-4 bg-muted rounded-lg">
-          <p className="text-xs font-medium text-muted-foreground mb-2">Demo Credentials:</p>
-          <div className="space-y-1 text-xs text-muted-foreground">
-            <p>CEO: ceo@nivixpe.com / ceo123</p>
-            <p>CTO: cto@nivixpe.com / cto123</p>
-            <p>COO: coo@nivixpe.com / coo123</p>
-            <p>CMO: cmo@nivixpe.com / cmo123</p>
-            <p>CSO: cso@nivixpe.com / cso123</p>
-            <p>Legal: legal@nivixpe.com / legal123</p>
-            <p>Designer: design@nivixpe.com / design123</p>
-          </div>
-        </div>
       </CardContent>
     </Card>
   );

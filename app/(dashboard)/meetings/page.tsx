@@ -18,9 +18,10 @@ export default function MeetingsPage() {
   // Mutations
   const createMeeting = useMutation(api.meetings.create);
   const updateMeeting = useMutation(api.meetings.update);
+  const clearAllMeetings = useMutation(api.meetings.clearAll);
   
-  // Only COO can schedule meetings and upload MOM
-  const isCOO = user?.role === 'COO';
+  // CEO and COO can schedule meetings and upload MOM
+  const canManageMeetings = user?.role === 'CEO' || user?.role === 'COO';
   
   // Form states
   const [showScheduleForm, setShowScheduleForm] = useState(false);
@@ -45,7 +46,7 @@ export default function MeetingsPage() {
 
   const handleScheduleMeeting = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isCOO) return;
+    if (!canManageMeetings) return;
     
     try {
       await createMeeting({
@@ -75,7 +76,7 @@ export default function MeetingsPage() {
 
   const handleUploadMOM = async (e: React.FormEvent, meetingId: any) => {
     e.preventDefault();
-    if (!isCOO) return;
+    if (!canManageMeetings) return;
     
     try {
       await updateMeeting({
@@ -111,18 +112,18 @@ export default function MeetingsPage() {
     <div className="flex-1 overflow-y-auto">
       <Header 
         title="Meetings & Minutes" 
-        subtitle={isCOO ? "Schedule meetings and upload MOM (COO Access)" : "View scheduled meetings and minutes"} 
+        subtitle={canManageMeetings ? "Schedule meetings and upload MOM (CEO/COO Access)" : "View scheduled meetings and minutes"} 
       />
 
       <div className="p-6 space-y-6">
-        {/* COO Schedule Meeting Button */}
-        {isCOO && (
+        {/* CEO/COO Schedule Meeting Button */}
+        {canManageMeetings && (
           <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg p-6 shadow-lg">
             <div className="flex justify-between items-center">
               <div className="text-white">
                 <h2 className="text-2xl font-bold mb-2 flex items-center gap-2">
                   <Shield className="h-6 w-6" />
-                  COO Meeting Management
+                  {user?.role === 'CEO' ? 'CEO' : 'COO'} Meeting Management
                 </h2>
                 <p className="text-blue-100">Schedule meetings and upload Minutes of Meeting (MOM)</p>
               </div>
@@ -137,8 +138,8 @@ export default function MeetingsPage() {
           </div>
         )}
 
-        {/* Schedule Meeting Form - COO Only */}
-        {isCOO && showScheduleForm && (
+        {/* Schedule Meeting Form - CEO/COO Only */}
+        {canManageMeetings && showScheduleForm && (
           <Card className="border-blue-300 bg-white">
             <CardHeader>
               <CardTitle className="text-blue-900">Schedule New Meeting</CardTitle>
@@ -304,7 +305,7 @@ export default function MeetingsPage() {
                         <span className="inline-flex px-3 py-1 bg-blue-600 text-white rounded text-xs font-medium">
                           Scheduled
                         </span>
-                        {isCOO && (
+                        {canManageMeetings && (
                           <button
                             onClick={() => setShowMOMUpload(showMOMUpload === meeting._id ? null : meeting._id)}
                             className="flex items-center gap-1 px-3 py-1 bg-green-600 text-white rounded text-xs font-medium hover:bg-green-700"
@@ -335,8 +336,8 @@ export default function MeetingsPage() {
                       </div>
                     )}
                     
-                    {/* MOM Upload Form - COO Only */}
-                    {isCOO && showMOMUpload === meeting._id && (
+                    {/* MOM Upload Form - CEO/COO Only */}
+                    {canManageMeetings && showMOMUpload === meeting._id && (
                       <div className="pt-3 border-t border-blue-300">
                         <form onSubmit={(e) => handleUploadMOM(e, meeting._id)} className="space-y-3">
                           <div>
