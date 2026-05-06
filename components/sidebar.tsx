@@ -31,7 +31,6 @@ const NAV_ITEMS = [
   { href: '/dashboard', label: 'Dashboard', icon: BarChart3 },
   { href: '/team-directory', label: 'Team Directory', icon: Users },
   { href: '/work-tracker', label: 'Work Tracker', icon: CheckSquare },
-  { href: '/ujjwal-tracker', label: 'Ujjwal Tracker', icon: TrendingUp },
   { href: '/work-allocation', label: 'Work Allocation', icon: Truck },
   { href: '/attendance', label: 'Attendance', icon: Clock },
   { href: '/attendance-history', label: 'Attendance History', icon: FileText },
