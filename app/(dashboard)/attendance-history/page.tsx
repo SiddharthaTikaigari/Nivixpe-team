@@ -95,17 +95,17 @@ export default function AttendanceHistoryPage() {
 
   // Role-wise statistics
   const roleStats = useMemo(() => {
-    const stats: Record<string, { totalHours: number, count: number, lateCount: number }> = {};
+    const stats: Record<string, { totalHours: number, count: number, presentCount: number }> = {};
     historyWithRoles.forEach(r => {
-      if (!stats[r.role]) stats[r.role] = { totalHours: 0, count: 0, lateCount: 0 };
+      if (!stats[r.role]) stats[r.role] = { totalHours: 0, count: 0, presentCount: 0 };
       stats[r.role].totalHours += calculateWorkHours(r.loginTime || '00:00', r.logoutTime);
       stats[r.role].count += 1;
-      if (r.status === 'late') stats[r.role].lateCount += 1;
+      if (r.status === 'present') stats[r.role].presentCount += 1;
     });
     return Object.entries(stats).map(([role, data]) => ({
       role,
       avgHours: data.count > 0 ? (data.totalHours / data.count / 60).toFixed(1) : 0,
-      lateRate: data.count > 0 ? Math.round((data.lateCount / data.count) * 100) : 0,
+      attendanceRate: data.count > 0 ? Math.round((data.presentCount / data.count) * 100) : 0,
       count: data.count
     }));
   }, [historyWithRoles]);
@@ -140,12 +140,16 @@ export default function AttendanceHistoryPage() {
   const personStats = useMemo(() => {
     const history = historyWithRoles.filter(r => r.email === targetEmail);
     const totalMins = history.reduce((acc, r) => acc + calculateWorkHours(r.loginTime || '00:00', r.logoutTime), 0);
-    const lateDays = history.filter(r => r.status === 'late').length;
+    const presentDays = history.filter(r => r.status === 'present').length;
+    const insufficientDays = history.filter(r => {
+      const mins = calculateWorkHours(r.loginTime || '00:00', r.logoutTime);
+      return mins > 0 && mins < 240;
+    }).length;
     return {
       totalHours: formatHours(totalMins),
       avgMins: history.length > 0 ? totalMins / history.length : 0,
-      lateDays,
-      attendanceRate: Math.min(100, Math.round((history.length / 22) * 100)) // Assuming 22 working days
+      insufficientDays,
+      attendanceRate: Math.min(100, Math.round((presentDays / 22) * 100)) // Assuming 22 working days
     };
   }, [historyWithRoles, targetEmail]);
 
@@ -220,9 +224,9 @@ export default function AttendanceHistoryPage() {
               <Clock size={20} />
             </div>
             <div>
-              <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Late Rate</p>
+              <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Insufficient Days</p>
               <p className="text-xl font-bold text-slate-900">
-                {Math.round(roleStats.reduce((acc, r) => acc + r.lateRate, 0) / (roleStats.length || 1))}%
+                {Math.round(roleStats.reduce((acc, r) => acc + (r.attendanceRate < 80 ? 1 : 0), 0) / (roleStats.length || 1))}
               </p>
             </div>
           </Card>
@@ -308,8 +312,8 @@ export default function AttendanceHistoryPage() {
                   </div>
                   <div className="grid grid-cols-2 gap-3 pt-1">
                     <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Late Days</p>
-                      <p className="text-lg font-bold text-amber-600">{personStats.lateDays}</p>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">&lt;4h Days</p>
+                      <p className="text-lg font-bold text-amber-600">{personStats.insufficientDays}</p>
                     </div>
                     <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Work Hours</p>
@@ -378,13 +382,18 @@ export default function AttendanceHistoryPage() {
                         <p className="text-[10px] font-bold text-indigo-500 uppercase">{record.team}</p>
                       </td>
                       <td className="px-6 py-4">
-                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                          record.status === 'present' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 
-                          record.status === 'late' ? 'bg-amber-50 text-amber-600 border border-amber-100' : 
-                          'bg-blue-50 text-blue-600 border border-blue-100'
-                        }`}>
-                          {record.status}
-                        </span>
+                        <div className="flex flex-col gap-1">
+                          <span className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                            record.status === 'present' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 
+                            record.status === 'onLeave' ? 'bg-blue-50 text-blue-600 border border-blue-100' : 
+                            'bg-red-50 text-red-600 border border-red-100'
+                          }`}>
+                            {record.status}
+                          </span>
+                          {record.status === 'present' && record.logoutTime && calculateWorkHours(record.loginTime || '00:00', record.logoutTime) < 240 && (
+                            <span className="text-[9px] font-bold text-amber-600 uppercase">⚠️ Below 4h</span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center justify-center gap-2 text-[13px] font-medium text-slate-500">
@@ -394,9 +403,18 @@ export default function AttendanceHistoryPage() {
                         </div>
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <span className="text-sm font-bold text-indigo-600 bg-indigo-50/50 px-3 py-1.5 rounded-lg border border-indigo-100 group-hover:bg-indigo-600 group-hover:text-white transition-all">
-                          {formatHours(calculateWorkHours(record.loginTime || '00:00', record.logoutTime))}
-                        </span>
+                        {record.logoutTime ? (
+                          <span className={cn(
+                            "text-sm font-bold px-3 py-1.5 rounded-lg border transition-all",
+                            calculateWorkHours(record.loginTime || '00:00', record.logoutTime) < 240 
+                              ? "bg-amber-50 text-amber-600 border-amber-100 group-hover:bg-amber-600 group-hover:text-white" 
+                              : "bg-indigo-50/50 text-indigo-600 border-indigo-100 group-hover:bg-indigo-600 group-hover:text-white"
+                          )}>
+                            {formatHours(calculateWorkHours(record.loginTime || '00:00', record.logoutTime))}
+                          </span>
+                        ) : (
+                          <span className="text-sm font-medium text-slate-400">—</span>
+                        )}
                       </td>
                     </tr>
                   ))

@@ -49,23 +49,34 @@ export const create = mutation({
     logoutTime: v.optional(v.string()),
     reportTime: v.optional(v.string()),
     status: v.string(),
+    workHours: v.optional(v.number()),
     approval: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    // Check if already marked for today
+    const existing = await ctx.db
+      .query("attendanceRecords")
+      .withIndex("by_date_and_email", (q) => 
+        q.eq("date", args.date).eq("email", args.email)
+      )
+      .first();
+    
+    if (existing) {
+      throw new Error("Attendance already marked for today");
+    }
+
     const attendanceId = await ctx.db.insert("attendanceRecords", args as any);
     
-    // Notify if late
-    if (args.status === "late") {
-      await ctx.db.insert("notifications", {
-        userId: args.email,
-        title: "Late Arrival",
-        message: `You logged in at ${args.loginTime}, which is marked as late.`,
-        type: "attendance",
-        isRead: false,
-        createdAt: new Date().toISOString(),
-        link: "/attendance",
-      });
-    }
+    // Notify on login
+    await ctx.db.insert("notifications", {
+      userId: args.email,
+      title: "Attendance Marked",
+      message: `You logged in at ${args.loginTime}. Remember to work minimum 4 hours and mark logout.`,
+      type: "attendance",
+      isRead: false,
+      createdAt: new Date().toISOString(),
+      link: "/attendance",
+    });
 
     return attendanceId;
   },
@@ -78,22 +89,45 @@ export const update = mutation({
     logoutTime: v.optional(v.string()),
     reportTime: v.optional(v.string()),
     status: v.optional(v.string()),
+    workHours: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const { id, ...updates } = args;
     const attendance = await ctx.db.get(id);
+    
+    if (!attendance) {
+      throw new Error("Attendance record not found");
+    }
+
     await ctx.db.patch(id, updates as any);
 
-    if (attendance && updates.logoutTime) {
-      await ctx.db.insert("notifications", {
-        userId: attendance.email,
-        title: "Logout Recorded",
-        message: `You have successfully logged out at ${updates.logoutTime}.`,
-        type: "attendance",
-        isRead: false,
-        createdAt: new Date().toISOString(),
-        link: "/attendance",
-      });
+    // Notify on logout with work hours validation
+    if (updates.logoutTime && updates.workHours !== undefined) {
+      const hours = Math.floor(updates.workHours / 60);
+      const minutes = updates.workHours % 60;
+      const workTimeStr = `${hours}h ${minutes}m`;
+      
+      if (updates.workHours < 240) { // Less than 4 hours (240 minutes)
+        await ctx.db.insert("notifications", {
+          userId: attendance.email,
+          title: "⚠️ Insufficient Work Hours",
+          message: `You logged out at ${updates.logoutTime}. Total work time: ${workTimeStr}. Minimum required: 4 hours.`,
+          type: "attendance",
+          isRead: false,
+          createdAt: new Date().toISOString(),
+          link: "/attendance-history",
+        });
+      } else {
+        await ctx.db.insert("notifications", {
+          userId: attendance.email,
+          title: "Logout Recorded",
+          message: `You logged out at ${updates.logoutTime}. Total work time: ${workTimeStr}. Great job!`,
+          type: "attendance",
+          isRead: false,
+          createdAt: new Date().toISOString(),
+          link: "/attendance-history",
+        });
+      }
     }
   },
 });
@@ -145,5 +179,82 @@ export const sendDailyReminders = mutation({
         });
       }
     }
+  },
+});
+
+// Sync approved leaves with attendance (mark as onLeave)
+export const syncLeaveWithAttendance = mutation({
+  args: { date: v.string() },
+  handler: async (ctx, args) => {
+    // Get all approved leave requests that cover this date
+    const allLeaves = await ctx.db
+      .query("leaveRequests")
+      .filter(q => q.eq(q.field("status"), "approved"))
+      .collect();
+    
+    const leavesToday = allLeaves.filter(leave => {
+      const startDate = new Date(leave.startDate);
+      const endDate = new Date(leave.endDate);
+      const checkDate = new Date(args.date);
+      return checkDate >= startDate && checkDate <= endDate;
+    });
+    
+    // Mark attendance as onLeave for these employees
+    for (const leave of leavesToday) {
+      const existing = await ctx.db
+        .query("attendanceRecords")
+        .withIndex("by_date_and_email", (q) => 
+          q.eq("date", args.date).eq("email", leave.employeeEmail)
+        )
+        .first();
+      
+      if (!existing) {
+        await ctx.db.insert("attendanceRecords", {
+          date: args.date,
+          email: leave.employeeEmail,
+          status: "onLeave",
+          approval: leave.approvedBy,
+        });
+      }
+    }
+    
+    return leavesToday.length;
+  },
+});
+
+// Get attendance summary with leave correlation
+export const getAttendanceSummary = query({
+  args: { date: v.string() },
+  handler: async (ctx, args) => {
+    const attendance = await ctx.db
+      .query("attendanceRecords")
+      .withIndex("by_date", (q) => q.eq("date", args.date))
+      .collect();
+    
+    const allMembers = await ctx.db
+      .query("teamMembers")
+      .filter(q => q.eq(q.field("status"), "active"))
+      .collect();
+    
+    const present = attendance.filter(a => a.status === "present").length;
+    const onLeave = attendance.filter(a => a.status === "onLeave").length;
+    
+    // Absent is anyone who is active but doesn't have an attendance record for today
+    // OR their record is specifically marked as absent (though we usually just don't have a record)
+    const markedEmails = new Set(attendance.map(a => a.email));
+    const absent = allMembers.filter(m => !markedEmails.has(m.email)).length;
+    
+    const insufficientHours = attendance.filter(a => 
+      a.status === "present" && a.workHours !== undefined && a.workHours < 240
+    ).length;
+    
+    return {
+      total: allMembers.length,
+      present,
+      onLeave,
+      absent,
+      insufficientHours,
+      attendanceRate: allMembers.length > 0 ? Math.round(((present + onLeave) / allMembers.length) * 100) : 0,
+    };
   },
 });

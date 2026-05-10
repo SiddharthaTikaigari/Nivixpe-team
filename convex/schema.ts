@@ -66,9 +66,9 @@ export default defineSchema({
     status: v.union(
       v.literal("present"),
       v.literal("absent"),
-      v.literal("late"),
       v.literal("onLeave")
     ),
+    workHours: v.optional(v.number()), // Total work hours in minutes
     approval: v.optional(v.string()),
   })
     .index("by_date", ["date"])

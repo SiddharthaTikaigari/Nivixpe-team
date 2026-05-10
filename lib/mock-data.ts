@@ -31,7 +31,7 @@ export interface AttendanceRecord {
   email: string;
   loginTime?: string;
   logoutTime?: string;
-  status: 'present' | 'absent' | 'late' | 'onLeave';
+  status: 'present' | 'absent' | 'onLeave';
 }
 
 export interface LeaveRequest {
@@ -841,21 +841,21 @@ export const ATTENDANCE_RECORDS: AttendanceRecord[] = [
     email: 'cmo@nivixpe.com',
     loginTime: '09:02',
     logoutTime: '18:15',
-    status: 'late',
+    status: 'present',
   },
   {
     date: '2025-05-02',
     email: 'dcso@nivixpe.com',
     loginTime: '09:10',
     logoutTime: '18:20',
-    status: 'late',
+    status: 'present',
   },
   {
     date: '2025-05-02',
     email: 'dcmo@nivixpe.com',
     loginTime: '09:05',
     logoutTime: '18:00',
-    status: 'late',
+    status: 'present',
   },
   {
     date: '2025-05-02',
@@ -869,14 +869,14 @@ export const ATTENDANCE_RECORDS: AttendanceRecord[] = [
     email: 'designer1@nivixpe.com',
     loginTime: '09:15',
     logoutTime: '18:00',
-    status: 'late',
+    status: 'present',
   },
   {
     date: '2025-05-02',
     email: 'designer2@nivixpe.com',
     loginTime: '09:20',
     logoutTime: '18:00',
-    status: 'late',
+    status: 'present',
   },
   {
     date: '2025-05-02',
