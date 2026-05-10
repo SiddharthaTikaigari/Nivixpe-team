@@ -7,11 +7,11 @@ import { Header } from '@/components/header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AddWorkForm } from '@/components/add-work-form';
 import { TeamWorkOverview } from '@/components/team-work-overview';
-import { TEAM_MEMBERS, WORK_TASKS } from '@/lib/mock-data';
-import { AlertCircle, CheckCircle, Clock, Shield, Users, RefreshCw } from 'lucide-react';
-import { useMutation } from 'convex/react';
+// Real-time data from Convex
+import { useQuery, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { cn } from '@/lib/utils';
+import { AlertCircle, CheckCircle, Clock, Shield, Users, RefreshCw } from 'lucide-react';
 
 interface WorkItem {
   id: string;
@@ -27,22 +27,24 @@ interface WorkItem {
 export default function AdminPage() {
   const { user } = useAuth();
   const router = useRouter();
-  const [workItems, setWorkItems] = useState<WorkItem[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [isCleaning, setIsCleaning] = useState(false);
 
+  // Real-time queries
+  const allTasks = useQuery(api.workTasks.getAll) || [];
+  const allMembers = useQuery(api.teamMembers.getAll) || [];
+  
   // Mutations
-  const deduplicateMembers = useMutation(api.teamMembers.deduplicate);
-  const deduplicateAttendance = useMutation(api.attendanceRecords.deduplicate);
+  const masterCleanup = useMutation(api.teamMembers.masterCleanup);
+  const deleteTask = useMutation(api.workTasks.remove);
+  const createTask = useMutation(api.workTasks.create);
 
   const handleCleanup = async () => {
-    if (!confirm('This will remove duplicate entries from the database. Proceed?')) return;
+    if (!confirm('This will remove all duplicate entries and invalid data from ALL tables. Proceed?')) return;
     
     setIsCleaning(true);
     try {
-      const membersCleaned = await deduplicateMembers();
-      const attendanceCleaned = await deduplicateAttendance();
-      alert(`Cleanup successful!\n- Removed ${membersCleaned} duplicate members\n- Removed ${attendanceCleaned} duplicate attendance records`);
+      const deletedCount = await masterCleanup();
+      alert(`Cleanup successful! Removed ${deletedCount} invalid/duplicate records across the system.`);
     } catch (error) {
       console.error('Cleanup failed:', error);
       alert('Cleanup failed. See console for details.');
@@ -52,29 +54,12 @@ export default function AdminPage() {
   };
 
   useEffect(() => {
-    // Check if user is CEO (super admin)
-    if (!user?.isSuperAdmin) {
+    if (user && !user.isSuperAdmin) {
       router.push('/dashboard');
-      return;
     }
-
-    // Initialize with existing work tasks
-    const initialWork = WORK_TASKS.map((task) => ({
-      id: task.id,
-      title: task.title,
-      assignee: task.assignee,
-      assigneeRole: task.assigneeRole,
-      status: task.status,
-      dueDate: task.dueDate,
-      priority: task.priority,
-      description: task.description,
-    }));
-
-    setWorkItems(initialWork);
-    setIsLoading(false);
   }, [user, router]);
 
-  const handleAddWork = (newWork: {
+  const handleAddWork = async (newWork: {
     title: string;
     assignee: string;
     assigneeRole: string;
@@ -82,22 +67,32 @@ export default function AdminPage() {
     dueDate: string;
     description: string;
   }) => {
-    const workItem: WorkItem = {
-      id: `work-${Date.now()}`,
-      ...newWork,
-      status: 'ongoing',
-    };
-
-    setWorkItems([...workItems, workItem]);
-  };
-
-  const handleDeleteWork = (id: string) => {
-    if (confirm('Are you sure you want to delete this work assignment?')) {
-      setWorkItems(workItems.filter((w) => w.id !== id));
+    try {
+      await createTask({
+        ...newWork,
+        status: 'ongoing',
+        createdBy: user?.name || 'Admin',
+        owner: user?.name,
+      });
+      alert('Work assigned successfully!');
+    } catch (error) {
+      console.error('Error adding work:', error);
+      alert('Failed to assign work.');
     }
   };
 
-  if (isLoading) {
+  const handleDeleteWork = async (id: any) => {
+    if (confirm('Are you sure you want to delete this work assignment?')) {
+      try {
+        await deleteTask({ id });
+      } catch (error) {
+        console.error('Error deleting work:', error);
+        alert('Failed to delete work.');
+      }
+    }
+  };
+
+  if (!user) {
     return (
       <div className="flex-1 flex items-center justify-center">
         <p className="text-muted-foreground">Loading admin panel...</p>
@@ -122,11 +117,11 @@ export default function AdminPage() {
     );
   }
 
-  const businessTeam = TEAM_MEMBERS.filter((m) => m.team === 'Business');
-  const legalTeam = TEAM_MEMBERS.filter((m) => m.team === 'Legal');
-  const completedWork = workItems.filter((w) => w.status === 'completed');
-  const ongoingWork = workItems.filter((w) => w.status === 'ongoing');
-  const missedWork = workItems.filter((w) => w.status === 'missed');
+  const businessTeam = allMembers.filter((m) => m.team === 'Business');
+  const legalTeam = allMembers.filter((m) => m.team === 'Legal');
+  const completedWork = allTasks.filter((w) => w.status === 'completed');
+  const ongoingWork = allTasks.filter((w) => w.status === 'ongoing');
+  const missedWork = allTasks.filter((w) => w.status === 'missed');
 
   return (
     <div className="flex-1 overflow-y-auto">
@@ -167,7 +162,7 @@ export default function AdminPage() {
             <CardContent className="pt-6">
               <div className="space-y-2">
                 <p className="text-sm text-muted-foreground">Total Team Members</p>
-                <p className="text-3xl font-bold text-foreground">{TEAM_MEMBERS.length}</p>
+                <p className="text-3xl font-bold text-foreground">{allMembers.length}</p>
                 <p className="text-xs text-muted-foreground mt-3">
                   <span className="font-semibold text-blue-600">{businessTeam.length}</span> Business,{' '}
                   <span className="font-semibold text-red-600">{legalTeam.length}</span> Legal
@@ -214,10 +209,10 @@ export default function AdminPage() {
         </div>
 
         {/* Add New Work Form */}
-        <AddWorkForm onAddWork={handleAddWork} />
+        <AddWorkForm onAddWork={handleAddWork} members={allMembers} />
 
         {/* Team Work Overview */}
-        <TeamWorkOverview workItems={workItems} onDeleteWork={handleDeleteWork} />
+        <TeamWorkOverview workItems={allTasks} onDeleteWork={handleDeleteWork} members={allMembers} />
 
         {/* Team Breakdown */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -232,7 +227,7 @@ export default function AdminPage() {
             <CardContent>
               <div className="space-y-2">
                 {businessTeam.map((member) => (
-                  <div key={member.id} className="flex items-center justify-between p-2 bg-muted/50 rounded">
+                  <div key={member._id} className="flex items-center justify-between p-2 bg-muted/50 rounded">
                     <div>
                       <p className="text-sm font-medium text-foreground">{member.name}</p>
                       <p className="text-xs text-muted-foreground">{member.role}</p>
@@ -259,7 +254,7 @@ export default function AdminPage() {
             <CardContent>
               <div className="space-y-2">
                 {legalTeam.map((member) => (
-                  <div key={member.id} className="flex items-center justify-between p-2 bg-muted/50 rounded">
+                  <div key={member._id} className="flex items-center justify-between p-2 bg-muted/50 rounded">
                     <div>
                       <p className="text-sm font-medium text-foreground">{member.name}</p>
                       <p className="text-xs text-muted-foreground">{member.role}</p>

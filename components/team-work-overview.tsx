@@ -1,6 +1,6 @@
 'use client';
 
-import { TEAM_MEMBERS } from '@/lib/mock-data';
+// Using real-time members from prop
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Search, Trash2 } from 'lucide-react';
@@ -20,9 +20,10 @@ interface WorkItem {
 interface TeamWorkOverviewProps {
   workItems: WorkItem[];
   onDeleteWork: (id: string) => void;
+  members: any[];
 }
 
-export function TeamWorkOverview({ workItems, onDeleteWork }: TeamWorkOverviewProps) {
+export function TeamWorkOverview({ workItems, onDeleteWork, members }: TeamWorkOverviewProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterTeam, setFilterTeam] = useState('all');
   const [filterPriority, setFilterPriority] = useState('all');
@@ -32,14 +33,14 @@ export function TeamWorkOverview({ workItems, onDeleteWork }: TeamWorkOverviewPr
       work.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       work.assignee.toLowerCase().includes(searchTerm.toLowerCase());
 
-    const assignee = TEAM_MEMBERS.find((m) => m.name === work.assignee);
+    const assignee = members.find((m) => m.name === work.assignee || m.email === work.assignee);
     const matchesTeam = filterTeam === 'all' || assignee?.team === filterTeam;
     const matchesPriority = filterPriority === 'all' || work.priority === filterPriority;
 
     return matchesSearch && matchesTeam && matchesPriority;
   });
 
-  const teams = Array.from(new Set(TEAM_MEMBERS.map((m) => m.team).filter(Boolean)));
+  const teams = Array.from(new Set(members.map((m) => m.team).filter(Boolean)));
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
@@ -112,7 +113,7 @@ export function TeamWorkOverview({ workItems, onDeleteWork }: TeamWorkOverviewPr
             <tbody>
               {filteredWork.length > 0 ? (
                 filteredWork.map((work, index) => (
-                  <tr key={work.id || index} className="border-b border-border hover:bg-muted/50">
+                  <tr key={work.id || work._id || index} className="border-b border-border hover:bg-muted/50">
                     <td className="py-3 px-4">
                       <div>
                         <p className="font-medium text-foreground">{work.title}</p>
@@ -135,7 +136,7 @@ export function TeamWorkOverview({ workItems, onDeleteWork }: TeamWorkOverviewPr
                     <td className="py-3 px-4 text-foreground">{work.dueDate}</td>
                     <td className="py-3 px-4 text-center">
                       <button
-                        onClick={() => onDeleteWork(work.id)}
+                        onClick={() => onDeleteWork(work.id || work._id)}
                         className="inline-flex items-center gap-1 text-red-600 hover:text-red-800 hover:bg-red-50 px-2 py-1 rounded transition-colors"
                         title="Delete this work assignment"
                       >

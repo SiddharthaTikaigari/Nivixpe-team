@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { TEAM_MEMBERS } from '@/lib/mock-data';
+// Using real-time members from prop
 
 interface AddWorkFormProps {
   onAddWork: (work: {
@@ -15,9 +15,10 @@ interface AddWorkFormProps {
     dueDate: string;
     description: string;
   }) => void;
+  members: any[];
 }
 
-export function AddWorkForm({ onAddWork }: AddWorkFormProps) {
+export function AddWorkForm({ onAddWork, members }: AddWorkFormProps) {
   const [formData, setFormData] = useState({
     title: '',
     assigneeId: '',
@@ -29,7 +30,7 @@ export function AddWorkForm({ onAddWork }: AddWorkFormProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    const selectedMember = TEAM_MEMBERS.find((m) => m.id === formData.assigneeId);
+    const selectedMember = members.find((m) => m._id === formData.assigneeId || m.id === formData.assigneeId);
     
     if (!selectedMember || !formData.title || !formData.dueDate) {
       alert('Please fill in all required fields');
@@ -87,8 +88,8 @@ export function AddWorkForm({ onAddWork }: AddWorkFormProps) {
                 required
               >
                 <option value="">Select team member</option>
-                {TEAM_MEMBERS.map((member) => (
-                  <option key={member.id} value={member.id}>
+                {members.map((member) => (
+                  <option key={member._id || member.id} value={member._id || member.id}>
                     {member.name} ({member.role})
                   </option>
                 ))}

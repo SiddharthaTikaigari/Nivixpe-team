@@ -85,3 +85,54 @@ export const deduplicate = mutation({
     return toDelete.length;
   },
 });
+
+export const masterCleanup = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const validMembers = await ctx.db.query("teamMembers").collect();
+    const validEmails = new Set(validMembers.map((m) => m.email));
+    let deletedCount = 0;
+    
+    const attendance = await ctx.db.query("attendanceRecords").collect();
+    for (const record of attendance) {
+      if (!validEmails.has(record.email)) {
+        await ctx.db.delete(record._id);
+        deletedCount++;
+      }
+    }
+    
+    const leaves = await ctx.db.query("leaveRequests").collect();
+    for (const leave of leaves) {
+      if (!validEmails.has(leave.employeeEmail)) {
+        await ctx.db.delete(leave._id);
+        deletedCount++;
+      }
+    }
+    
+    const notifications = await ctx.db.query("notifications").collect();
+    for (const notification of notifications) {
+      if (!validEmails.has(notification.userId)) {
+        await ctx.db.delete(notification._id);
+        deletedCount++;
+      }
+    }
+
+    const tasks = await ctx.db.query("workTasks").collect();
+    for (const task of tasks) {
+      if (task.assignee.includes("@") && !validEmails.has(task.assignee)) {
+        await ctx.db.delete(task._id);
+        deletedCount++;
+      }
+    }
+
+    const meetings = await ctx.db.query("meetings").collect();
+    for (const meeting of meetings) {
+      if (!validEmails.has(meeting.organizer)) {
+        await ctx.db.delete(meeting._id);
+        deletedCount++;
+      }
+    }
+    
+    return deletedCount;
+  },
+});

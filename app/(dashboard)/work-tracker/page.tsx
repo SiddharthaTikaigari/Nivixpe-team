@@ -5,7 +5,7 @@ import { Header } from '@/components/header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { TEAM_MEMBERS } from '@/lib/mock-data';
 import { canAssignTasks, getAssignableMembers, getVisibleTasks } from '@/lib/rbac';
-import { CheckCircle, Clock, AlertCircle, Shield, Users, RefreshCw, User, Plus } from 'lucide-react';
+import { CheckCircle, Clock, AlertCircle, Shield, Users, RefreshCw, User, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
@@ -26,6 +26,7 @@ export default function WorkTrackerPage() {
   const allTasks = useQuery(api.workTasks.getAll) || [];
   const createTask = useMutation(api.workTasks.create);
   const updateTask = useMutation(api.workTasks.update);
+  const deleteTask = useMutation(api.workTasks.remove);
   const allProofOfWork = useQuery(api.proofOfWork.getAll) || [];
   
   // Get visible tasks based on user role
@@ -54,6 +55,17 @@ export default function WorkTrackerPage() {
     } catch (error) {
       console.error('Error updating task:', error);
       alert('Failed to update task status.');
+    }
+  };
+
+  const handleDeleteTask = async (taskId: any) => {
+    if (!confirm('Are you sure you want to delete this task?')) return;
+    try {
+      await deleteTask({ id: taskId });
+      alert('Task deleted successfully!');
+    } catch (error) {
+      console.error('Error deleting task:', error);
+      alert('Failed to delete task.');
     }
   };
 
@@ -171,20 +183,31 @@ export default function WorkTrackerPage() {
                         )}
                       </td>
                       <td className="p-2 text-right">
-                        {task.status !== 'completed' && task.assignee === user?.name && (
-                          <button
-                            onClick={() => handleMarkAsDone(task._id)}
-                            disabled={!hasSubmittedPoW(task)}
-                            className={`text-xs px-2 py-1 rounded border transition-colors ${
-                              hasSubmittedPoW(task)
-                                ? "bg-green-600 text-white border-green-700 hover:bg-green-700"
-                                : "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
-                            }`}
-                            title={!hasSubmittedPoW(task) ? "Submit Proof of Work first to mark as done" : "Mark task as completed"}
-                          >
-                            Mark as Done
-                          </button>
-                        )}
+                        <div className="flex items-center justify-end gap-2">
+                          {task.status !== 'completed' && task.assignee === user?.name && (
+                            <button
+                              onClick={() => handleMarkAsDone(task._id)}
+                              disabled={!hasSubmittedPoW(task)}
+                              className={`text-xs px-2 py-1 rounded border transition-colors ${
+                                hasSubmittedPoW(task)
+                                  ? "bg-green-600 text-white border-green-700 hover:bg-green-700"
+                                  : "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                              }`}
+                              title={!hasSubmittedPoW(task) ? "Submit Proof of Work first to mark as done" : "Mark task as completed"}
+                            >
+                              Mark as Done
+                            </button>
+                          )}
+                          {(user?.isSuperAdmin || user?.role === 'CTO') && (
+                            <button
+                              onClick={() => handleDeleteTask(task._id)}
+                              className="text-red-600 hover:text-red-800 p-1 rounded hover:bg-red-50 transition-colors"
+                              title="Delete Task (Admin Only)"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))
