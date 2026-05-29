@@ -41,6 +41,9 @@ export const create = mutation({
     attendees: v.array(v.string()),
     status: v.string(),
     minutesUrl: v.optional(v.string()),
+    meetLink: v.optional(v.string()),
+    calendarEventId: v.optional(v.string()),
+    scheduledBy: v.optional(v.string()),
     agenda: v.optional(v.string()),
     decisions: v.optional(v.string()),
     actionItems: v.optional(v.array(v.object({
@@ -52,6 +55,8 @@ export const create = mutation({
   handler: async (ctx, args) => {
     const meetingId = await ctx.db.insert("meetings", args as any);
     
+    const meetInfo = args.meetLink ? ` Join: ${args.meetLink}` : "";
+
     // Notify all attendees
     for (const attendeeName of args.attendees) {
       const member = await ctx.db
@@ -63,7 +68,7 @@ export const create = mutation({
         await ctx.db.insert("notifications", {
           userId: member.email,
           title: "New Meeting Scheduled",
-          message: `You have been invited to: ${args.title} on ${args.date} at ${args.time}.`,
+          message: `You have been invited to: ${args.title} on ${args.date} at ${args.time}.${meetInfo}`,
           type: "meeting",
           isRead: false,
           createdAt: new Date().toISOString(),
@@ -87,6 +92,18 @@ export const update = mutation({
   handler: async (ctx, args) => {
     const { id, ...updates } = args;
     await ctx.db.patch(id, updates as any);
+  },
+});
+
+// Delete a single meeting
+export const remove = mutation({
+  args: { id: v.id("meetings") },
+  handler: async (ctx, args) => {
+    const meeting = await ctx.db.get(args.id);
+    if (!meeting) {
+      throw new Error("Meeting not found.");
+    }
+    await ctx.db.delete(args.id);
   },
 });
 

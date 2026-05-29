@@ -125,9 +125,13 @@ export const masterCleanup = mutation({
       }
     }
 
+    const validNames = new Set(validMembers.map((m) => m.name));
     const meetings = await ctx.db.query("meetings").collect();
     for (const meeting of meetings) {
-      if (!validEmails.has(meeting.organizer)) {
+      const hasValidAttendee = meeting.attendees.some(
+        (a) => validNames.has(a) || validEmails.has(a),
+      );
+      if (meeting.attendees.length > 0 && !hasValidAttendee) {
         await ctx.db.delete(meeting._id);
         deletedCount++;
       }

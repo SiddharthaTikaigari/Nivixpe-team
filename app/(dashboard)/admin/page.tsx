@@ -7,40 +7,42 @@ import { Header } from '@/components/header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AddWorkForm } from '@/components/add-work-form';
 import { TeamWorkOverview } from '@/components/team-work-overview';
-// Real-time data from Convex
+import { AdminIndividualTrackers } from '@/components/admin-individual-trackers';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { cn } from '@/lib/utils';
+import { confirmDelete } from '@/lib/confirm-delete';
+import { canAccessAdminPanel } from '@/lib/rbac';
 import { AlertCircle, CheckCircle, Clock, Shield, Users, RefreshCw } from 'lucide-react';
-
-interface WorkItem {
-  id: string;
-  title: string;
-  assignee: string;
-  assigneeRole: string;
-  status?: string;
-  dueDate: string;
-  priority: string;
-  description?: string;
-}
 
 export default function AdminPage() {
   const { user } = useAuth();
   const router = useRouter();
   const [isCleaning, setIsCleaning] = useState(false);
 
-  // Real-time queries
   const allTasks = useQuery(api.workTasks.getAll) || [];
   const allMembers = useQuery(api.teamMembers.getAll) || [];
-  
-  // Mutations
+  const allAttendance = useQuery(api.attendanceRecords.getAllHistory) || [];
+  const allLeaves = useQuery(api.leaveRequests.getAll) || [];
+  const allProofOfWork = useQuery(api.proofOfWork.getAll) || [];
+  const allMeetings = useQuery(api.meetings.getAll) || [];
+  const allDriveDocs = useQuery(api.driveDocuments.getAll) || [];
+
   const masterCleanup = useMutation(api.teamMembers.masterCleanup);
   const deleteTask = useMutation(api.workTasks.remove);
   const createTask = useMutation(api.workTasks.create);
 
+  const hasAccess = canAccessAdminPanel(user);
+
+  useEffect(() => {
+    if (user && !hasAccess) {
+      router.push('/dashboard');
+    }
+  }, [user, hasAccess, router]);
+
   const handleCleanup = async () => {
-    if (!confirm('This will remove all duplicate entries and invalid data from ALL tables. Proceed?')) return;
-    
+    if (!confirmDelete('invalid and duplicate records across all system tables')) return;
+
     setIsCleaning(true);
     try {
       const deletedCount = await masterCleanup();
@@ -52,12 +54,6 @@ export default function AdminPage() {
       setIsCleaning(false);
     }
   };
-
-  useEffect(() => {
-    if (user && !user.isSuperAdmin) {
-      router.push('/dashboard');
-    }
-  }, [user, router]);
 
   const handleAddWork = async (newWork: {
     title: string;
@@ -82,13 +78,11 @@ export default function AdminPage() {
   };
 
   const handleDeleteWork = async (id: any) => {
-    if (confirm('Are you sure you want to delete this work assignment?')) {
-      try {
-        await deleteTask({ id });
-      } catch (error) {
-        console.error('Error deleting work:', error);
-        alert('Failed to delete work.');
-      }
+    try {
+      await deleteTask({ id });
+    } catch (error) {
+      console.error('Error deleting work:', error);
+      alert('Failed to delete work.');
     }
   };
 
@@ -100,7 +94,7 @@ export default function AdminPage() {
     );
   }
 
-  if (!user?.isSuperAdmin) {
+  if (!hasAccess) {
     return (
       <div className="flex-1 overflow-y-auto">
         <Header title="Access Denied" subtitle="You do not have permission to access this page" />
@@ -108,7 +102,7 @@ export default function AdminPage() {
           <Card className="border-red-300 bg-red-50">
             <CardContent className="pt-6">
               <p className="text-red-900">
-                Only the CEO can access the admin panel. Please contact your administrator.
+                Only CEO, CTO, and COO can access the admin panel.
               </p>
             </CardContent>
           </Card>
@@ -123,15 +117,17 @@ export default function AdminPage() {
   const ongoingWork = allTasks.filter((w) => w.status === 'ongoing');
   const missedWork = allTasks.filter((w) => w.status === 'missed');
 
+  const panelTitle =
+    user.isSuperAdmin ? 'CEO Admin Panel' : user.role === 'CTO' ? 'CTO Admin Panel' : 'COO Admin Panel';
+
   return (
     <div className="flex-1 overflow-y-auto">
       <Header
-        title="CEO Admin Panel"
-        subtitle="Manage all team work assignments and organizational tasks"
+        title={panelTitle}
+        subtitle="Manage all team work assignments and view complete individual member activity"
       />
 
       <div className="p-6 space-y-6">
-        {/* Admin Alert */}
         <Card className="border-purple-300 bg-purple-50">
           <CardHeader className="flex flex-row items-center justify-between space-y-0">
             <CardTitle className="flex items-center gap-2">
@@ -141,7 +137,7 @@ export default function AdminPage() {
           </CardHeader>
           <CardContent>
             <p className="text-sm text-purple-900">
-              Welcome to the admin panel, {user?.name}. You have full control over all team work assignments. Add new work for any team member, monitor progress, and manage organizational tasks.
+              Welcome, {user.name}. You have full admin access to manage work assignments, view every team member&apos;s complete tracker, and run system cleanup.
             </p>
             <div className="mt-4">
               <button
@@ -149,14 +145,13 @@ export default function AdminPage() {
                 disabled={isCleaning}
                 className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition-all shadow-lg shadow-purple-200 disabled:opacity-50"
               >
-                <RefreshCw className={cn("h-4 w-4", isCleaning && "animate-spin")} />
+                <RefreshCw className={cn('h-4 w-4', isCleaning && 'animate-spin')} />
                 {isCleaning ? 'Cleaning...' : 'Cleanup Duplicate Data'}
               </button>
             </div>
           </CardContent>
         </Card>
 
-        {/* Statistics */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card className="border-border">
             <CardContent className="pt-6">
@@ -208,15 +203,21 @@ export default function AdminPage() {
           </Card>
         </div>
 
-        {/* Add New Work Form */}
+        <AdminIndividualTrackers
+          members={allMembers}
+          tasks={allTasks}
+          attendance={allAttendance}
+          leaves={allLeaves}
+          proofOfWork={allProofOfWork}
+          meetings={allMeetings}
+          driveDocs={allDriveDocs}
+        />
+
         <AddWorkForm onAddWork={handleAddWork} members={allMembers} />
 
-        {/* Team Work Overview */}
         <TeamWorkOverview workItems={allTasks} onDeleteWork={handleDeleteWork} members={allMembers} />
 
-        {/* Team Breakdown */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Business Team */}
           <Card className="border-border">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -236,14 +237,13 @@ export default function AdminPage() {
                       className={`w-2 h-2 rounded-full ${
                         member.status === 'active' ? 'bg-green-500' : 'bg-yellow-500'
                       }`}
-                    ></span>
+                    />
                   </div>
                 ))}
               </div>
             </CardContent>
           </Card>
 
-          {/* Legal Team */}
           <Card className="border-border">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -263,7 +263,7 @@ export default function AdminPage() {
                       className={`w-2 h-2 rounded-full ${
                         member.status === 'active' ? 'bg-green-500' : 'bg-yellow-500'
                       }`}
-                    ></span>
+                    />
                   </div>
                 ))}
               </div>
