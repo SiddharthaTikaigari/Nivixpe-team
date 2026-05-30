@@ -3,6 +3,7 @@
 import { action } from "./_generated/server";
 import { api } from "./_generated/api";
 import { v } from "convex/values";
+import { Id } from "./_generated/dataModel";
 import { createGoogleMeetEvent } from "./googleMeet";
 
 export const scheduleWithGoogleMeet = action({
@@ -14,10 +15,10 @@ export const scheduleWithGoogleMeet = action({
     agenda: v.optional(v.string()),
     scheduledBy: v.string(),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<{ meetingId: Id<"meetings">; meetLink: string }> => {
     const members = await ctx.runQuery(api.teamMembers.getAll);
     const attendeeEmails = args.attendees
-      .map((name) => members.find((m) => m.name === name)?.email)
+      .map((name) => members.find((m: { name: string; email: string }) => m.name === name)?.email)
       .filter((email): email is string => Boolean(email));
 
     const { meetLink, calendarEventId } = await createGoogleMeetEvent({
@@ -28,7 +29,7 @@ export const scheduleWithGoogleMeet = action({
       agenda: args.agenda,
     });
 
-    const meetingId = await ctx.runMutation(api.meetings.create, {
+    const meetingId: Id<"meetings"> = await ctx.runMutation(api.meetings.create, {
       title: args.title,
       date: args.date,
       time: args.time,

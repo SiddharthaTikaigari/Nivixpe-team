@@ -61,7 +61,7 @@ export async function createGoogleMeetEvent(
   const meetLink =
     event.data.hangoutLink ||
     event.data.conferenceData?.entryPoints?.find(
-      (entry) => entry.entryPointType === "video",
+      (entry: any) => entry.entryPointType === "video",
     )?.uri;
 
   if (!meetLink || !event.data.id) {
