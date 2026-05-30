@@ -23,6 +23,7 @@ import {
   Truck,
   Bell,
   Shield,
+  HardDrive,
   Menu,
   X,
 } from 'lucide-react';
@@ -38,6 +39,7 @@ const NAV_ITEMS = [
   { href: '/meetings', label: 'Meetings & MOM', icon: FileText },
   { href: '/legal', label: 'Legal Module', icon: AlertCircle },
   { href: '/proof-of-work', label: 'Proof of Work', icon: Briefcase },
+  { href: '/drive', label: 'Team Drive', icon: HardDrive },
   { href: '/tech-panel', label: 'Tech Panel', icon: Zap },
   { href: '/notifications', label: 'Notifications', icon: Bell },
   { href: '/admin', label: 'Admin Panel', icon: Shield },

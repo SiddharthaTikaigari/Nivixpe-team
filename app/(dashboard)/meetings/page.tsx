@@ -2,12 +2,13 @@
 
 import { Header } from '@/components/header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Calendar, Users, FileText, Plus, Upload, Shield } from 'lucide-react';
-import { useQuery, useMutation } from 'convex/react';
+import { Calendar, Users, FileText, Plus, Upload, Shield, X, Video, Loader2 } from 'lucide-react';
+import { useQuery, useMutation, useAction } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { useAuth } from '@/app/providers';
 import { useState } from 'react';
 import { TEAM_MEMBERS } from '@/lib/mock-data';
+import { confirmDelete } from '@/lib/confirm-delete';
 
 export default function MeetingsPage() {
   const { user } = useAuth();
@@ -15,17 +16,15 @@ export default function MeetingsPage() {
   // Real-time queries
   const allMeetings = useQuery(api.meetings.getAll) || [];
   
-  // Mutations
-  const createMeeting = useMutation(api.meetings.create);
+  const scheduleWithGoogleMeet = useAction(api.meetingsActions.scheduleWithGoogleMeet);
   const updateMeeting = useMutation(api.meetings.update);
-  const clearAllMeetings = useMutation(api.meetings.clearAll);
+  const deleteMeeting = useMutation(api.meetings.remove);
   
-  // CEO and COO can schedule meetings and upload MOM
-  const canManageMeetings = user?.role === 'CEO' || user?.role === 'COO';
+  const canManageMeetings = user?.isSuperAdmin || user?.role === 'CEO' || user?.role === 'COO';
   
-  // Form states
   const [showScheduleForm, setShowScheduleForm] = useState(false);
   const [showMOMUpload, setShowMOMUpload] = useState<string | null>(null);
+  const [isScheduling, setIsScheduling] = useState(false);
   
   const [scheduleFormData, setScheduleFormData] = useState({
     title: '',
@@ -46,19 +45,19 @@ export default function MeetingsPage() {
 
   const handleScheduleMeeting = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!canManageMeetings) return;
-    
+    if (!canManageMeetings || !user) return;
+
+    setIsScheduling(true);
     try {
-      await createMeeting({
+      const result = await scheduleWithGoogleMeet({
         title: scheduleFormData.title,
         date: scheduleFormData.date,
         time: scheduleFormData.time,
         attendees: scheduleFormData.attendees,
-        status: 'scheduled',
-        agenda: scheduleFormData.agenda,
+        agenda: scheduleFormData.agenda || undefined,
+        scheduledBy: user.name,
       });
-      
-      // Reset form
+
       setScheduleFormData({
         title: '',
         date: '',
@@ -67,10 +66,18 @@ export default function MeetingsPage() {
         agenda: '',
       });
       setShowScheduleForm(false);
-      alert('Meeting scheduled successfully!');
+      alert(
+        `Meeting scheduled successfully!\n\nGoogle Meet link:\n${result.meetLink}`,
+      );
     } catch (error) {
       console.error('Error scheduling meeting:', error);
-      alert('Failed to schedule meeting');
+      alert(
+        error instanceof Error
+          ? error.message
+          : 'Failed to schedule meeting. Ensure Google Calendar API credentials are configured in Convex.',
+      );
+    } finally {
+      setIsScheduling(false);
     }
   };
 
@@ -108,11 +115,24 @@ export default function MeetingsPage() {
     }));
   };
 
+  const handleDeleteMeeting = async (meetingId: any, meetingTitle: string) => {
+    if (!canManageMeetings) return;
+    if (!confirmDelete('meeting', meetingTitle)) return;
+
+    try {
+      await deleteMeeting({ id: meetingId });
+      alert('Meeting deleted successfully.');
+    } catch (error) {
+      console.error('Error deleting meeting:', error);
+      alert('Failed to delete meeting.');
+    }
+  };
+
   return (
     <div className="flex-1 overflow-y-auto">
       <Header 
         title="Meetings & Minutes" 
-        subtitle={canManageMeetings ? "Schedule meetings and upload MOM (CEO/COO Access)" : "View scheduled meetings and minutes"} 
+        subtitle={canManageMeetings ? "Schedule meetings with auto-generated Google Meet links (CEO/COO Access)" : "View scheduled meetings and minutes"} 
       />
 
       <div className="p-6 space-y-6">
@@ -125,7 +145,7 @@ export default function MeetingsPage() {
                   <Shield className="h-6 w-6" />
                   {user?.role === 'CEO' ? 'CEO' : 'COO'} Meeting Management
                 </h2>
-                <p className="text-blue-100">Schedule meetings and upload Minutes of Meeting (MOM)</p>
+                <p className="text-blue-100">Schedule meetings — a Google Meet link is created automatically via Google Calendar API</p>
               </div>
               <button
                 onClick={() => setShowScheduleForm(!showScheduleForm)}
@@ -225,10 +245,11 @@ export default function MeetingsPage() {
                 <div className="flex items-center gap-3 pt-2">
                   <button
                     type="submit"
-                    disabled={scheduleFormData.attendees.length === 0}
-                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:bg-gray-400 disabled:cursor-not-allowed"
+                    disabled={scheduleFormData.attendees.length === 0 || isScheduling}
+                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2"
                   >
-                    Schedule Meeting
+                    {isScheduling && <Loader2 className="h-4 w-4 animate-spin" />}
+                    {isScheduling ? 'Creating Google Meet...' : 'Schedule Meeting + Google Meet'}
                   </button>
                   <button
                     type="button"
@@ -306,13 +327,22 @@ export default function MeetingsPage() {
                           Scheduled
                         </span>
                         {canManageMeetings && (
-                          <button
-                            onClick={() => setShowMOMUpload(showMOMUpload === meeting._id ? null : meeting._id)}
-                            className="flex items-center gap-1 px-3 py-1 bg-green-600 text-white rounded text-xs font-medium hover:bg-green-700"
-                          >
-                            <Upload className="w-3 h-3" />
-                            Upload MOM
-                          </button>
+                          <>
+                            <button
+                              onClick={() => setShowMOMUpload(showMOMUpload === meeting._id ? null : meeting._id)}
+                              className="flex items-center gap-1 px-3 py-1 bg-green-600 text-white rounded text-xs font-medium hover:bg-green-700"
+                            >
+                              <Upload className="w-3 h-3" />
+                              Upload MOM
+                            </button>
+                            <button
+                              onClick={() => handleDeleteMeeting(meeting._id, meeting.title)}
+                              className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
+                              title="Delete meeting"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </>
                         )}
                       </div>
                     </div>
@@ -333,6 +363,19 @@ export default function MeetingsPage() {
                       <div className="pt-2 border-t border-blue-200">
                         <p className="text-xs font-medium text-muted-foreground mb-1">Agenda:</p>
                         <p className="text-sm text-gray-700">{meeting.agenda}</p>
+                      </div>
+                    )}
+                    {meeting.meetLink && (
+                      <div className="pt-2 border-t border-blue-200">
+                        <a
+                          href={meeting.meetLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-2 text-blue-700 font-medium text-sm hover:underline"
+                        >
+                          <Video className="w-4 h-4" />
+                          Join Google Meet
+                        </a>
                       </div>
                     )}
                     
@@ -418,9 +461,20 @@ export default function MeetingsPage() {
                           </span>
                         </div>
                       </div>
-                      <span className="inline-flex px-3 py-1 bg-green-600 text-white rounded text-xs font-medium">
-                        Completed
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="inline-flex px-3 py-1 bg-green-600 text-white rounded text-xs font-medium">
+                          Completed
+                        </span>
+                        {canManageMeetings && (
+                          <button
+                            onClick={() => handleDeleteMeeting(meeting._id, meeting.title)}
+                            className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
+                            title="Delete meeting"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
                     </div>
                     <div>
                       <p className="text-xs font-medium text-muted-foreground mb-2">Attendees:</p>
@@ -451,6 +505,19 @@ export default function MeetingsPage() {
                         >
                           <FileText className="w-4 h-4" />
                           View Minutes of Meeting (MOM)
+                        </a>
+                      </div>
+                    )}
+                    {meeting.meetLink && (
+                      <div className="pt-2 border-t border-green-200">
+                        <a
+                          href={meeting.meetLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-2 text-blue-700 font-medium text-sm hover:underline"
+                        >
+                          <Video className="w-4 h-4" />
+                          Google Meet Recording Link
                         </a>
                       </div>
                     )}

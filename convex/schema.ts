@@ -110,6 +110,9 @@ export default defineSchema({
       v.literal("cancelled")
     ),
     minutesUrl: v.optional(v.string()),
+    meetLink: v.optional(v.string()),
+    calendarEventId: v.optional(v.string()),
+    scheduledBy: v.optional(v.string()),
     agenda: v.optional(v.string()),
     decisions: v.optional(v.string()),
     actionItems: v.optional(v.array(v.object({
@@ -130,7 +133,7 @@ export default defineSchema({
     submissionDate: v.string(),
     workDescription: v.string(),
     proofLink: v.optional(v.string()),
-    proofFile: v.optional(v.string()),
+    proofFile: v.optional(v.id("_storage")),
     status: v.union(
       v.literal("submitted"),
       v.literal("approved"),
@@ -170,4 +173,25 @@ export default defineSchema({
     createdAt: v.string(),
   })
     .index("by_user", ["userId"]),
+
+  // Team Drive Documents
+  driveDocuments: defineTable({
+    teamFolder: v.union(
+      v.literal("Marketing"),
+      v.literal("Business"),
+      v.literal("Legal"),
+      v.literal("Technical"),
+      v.literal("Other"),
+    ),
+    uploadedBy: v.string(),
+    uploadedByEmail: v.string(),
+    fileName: v.string(),
+    storageId: v.optional(v.id("_storage")),
+    externalLink: v.optional(v.string()),
+    description: v.optional(v.string()),
+    uploadedAt: v.string(),
+  })
+    .index("by_teamFolder", ["teamFolder"])
+    .index("by_uploader", ["uploadedByEmail"])
+    .index("by_teamFolder_and_uploader", ["teamFolder", "uploadedByEmail"]),
 });

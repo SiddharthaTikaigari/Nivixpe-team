@@ -43,10 +43,18 @@ export const create = mutation({
     submissionDate: v.string(),
     workDescription: v.string(),
     proofLink: v.optional(v.string()),
-    proofFile: v.optional(v.string()),
+    proofFile: v.optional(v.id("_storage")),
     status: v.string(),
   },
   handler: async (ctx, args) => {
+    if (args.proofFile) {
+      const metadata = await ctx.storage.getMetadata(args.proofFile);
+      if (metadata && metadata.size > Math.floor(1.5 * 1024 * 1024)) {
+        await ctx.storage.delete(args.proofFile);
+        throw new Error("File exceeds the 1.5 MB limit per document.");
+      }
+    }
+
     const powId = await ctx.db.insert("proofOfWork", args as any);
     
     // Notify CEO/Admin about new POW submission

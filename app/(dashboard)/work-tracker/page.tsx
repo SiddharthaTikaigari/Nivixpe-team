@@ -4,8 +4,9 @@ import { useAuth } from '@/app/providers';
 import { Header } from '@/components/header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { TEAM_MEMBERS } from '@/lib/mock-data';
-import { canAssignTasks, getAssignableMembers, getVisibleTasks } from '@/lib/rbac';
-import { CheckCircle, Clock, AlertCircle, Shield, Users, RefreshCw, User, Plus, Trash2 } from 'lucide-react';
+import { canAssignTasks, getAssignableMembers, getVisibleTasks, canDeleteAllocatedTask } from '@/lib/rbac';
+import { confirmDelete } from '@/lib/confirm-delete';
+import { CheckCircle, Clock, AlertCircle, Shield, Users, RefreshCw, User, Plus, X } from 'lucide-react';
 import { useState } from 'react';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
@@ -58,8 +59,8 @@ export default function WorkTrackerPage() {
     }
   };
 
-  const handleDeleteTask = async (taskId: any) => {
-    if (!confirm('Are you sure you want to delete this task?')) return;
+  const handleDeleteTask = async (taskId: any, taskTitle: string) => {
+    if (!confirmDelete('task', taskTitle)) return;
     try {
       await deleteTask({ id: taskId });
       alert('Task deleted successfully!');
@@ -198,13 +199,13 @@ export default function WorkTrackerPage() {
                               Mark as Done
                             </button>
                           )}
-                          {(user?.isSuperAdmin || user?.role === 'CTO') && (
+                          {canDeleteAllocatedTask(user, task) && (
                             <button
-                              onClick={() => handleDeleteTask(task._id)}
-                              className="text-red-600 hover:text-red-800 p-1 rounded hover:bg-red-50 transition-colors"
-                              title="Delete Task (Admin Only)"
+                              onClick={() => handleDeleteTask(task._id, task.title)}
+                              className="text-red-500 hover:text-red-700 p-0.5 rounded hover:bg-red-50 transition-colors"
+                              title="Remove allocated task"
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <X className="h-4 w-4" />
                             </button>
                           )}
                         </div>

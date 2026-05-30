@@ -8,6 +8,7 @@ import { useAuth } from '@/app/providers';
 import { useState, useEffect } from 'react';
 import { CheckCircle, Clock, AlertCircle, Calendar, Timer } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { isNightShiftWorker, getAttendanceShiftNote, NIGHT_SHIFT_START } from '@/lib/attendance-shift';
 
 export default function AttendancePage() {
   const { user } = useAuth();
@@ -166,6 +167,24 @@ export default function AttendancePage() {
         </Card>
 
         {/* Attendance Rules */}
+        {user && isNightShiftWorker(user) && (
+          <Card className="border-indigo-300 bg-indigo-50">
+            <CardHeader>
+              <CardTitle className="text-indigo-900 flex items-center gap-2">
+                <Clock className="h-5 w-5" />
+                Night Shift Attendance — {user.role}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm text-indigo-900 space-y-2">
+              <p className="font-semibold">Your primary shift starts at {NIGHT_SHIFT_START} (9:00 PM).</p>
+              <p>{getAttendanceShiftNote(user)}</p>
+              <p className="text-indigo-700">
+                Daytime login is optional — use Mark Login whenever you begin working, day or night.
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
         <Card className="border-red-300 bg-red-50">
           <CardHeader>
             <CardTitle className="text-red-900 flex items-center gap-2">
@@ -177,7 +196,7 @@ export default function AttendancePage() {
             <p className="font-bold text-lg underline">MANDATORY: All employees (including Leads) MUST work minimum 4 hours per day.</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <ul className="list-disc list-inside space-y-1">
-                <li>Mark <strong>LOGIN</strong> when you start work (any time)</li>
+                <li>Mark <strong>LOGIN</strong> when you start work (any time{user && isNightShiftWorker(user) ? ', including before 9 PM if working during the day' : ''})</li>
                 <li>Mark <strong>LOGOUT</strong> when you finish work</li>
                 <li>System automatically calculates work hours</li>
               </ul>

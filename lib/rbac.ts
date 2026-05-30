@@ -13,6 +13,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'meetings',
     'legal',
     'proof-of-work',
+    'drive',
     'tech-panel',
     'notifications',
     'settings',
@@ -29,8 +30,10 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'leave-management',
     'meetings',
     'proof-of-work',
+    'drive',
     'notifications',
     'settings',
+    'admin',
   ],
   'CSO': [
     'dashboard',
@@ -42,6 +45,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'leave-management',
     'meetings',
     'proof-of-work',
+    'drive',
     'notifications',
     'settings',
   ],
@@ -55,6 +59,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'leave-management',
     'meetings',
     'proof-of-work',
+    'drive',
     'notifications',
     'settings',
   ],
@@ -68,6 +73,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'leave-management',
     'meetings',
     'proof-of-work',
+    'drive',
     'notifications',
     'settings',
   ],
@@ -81,6 +87,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'leave-management',
     'meetings',
     'proof-of-work',
+    'drive',
     'notifications',
     'settings',
   ],
@@ -95,8 +102,10 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'meetings',
     'tech-panel',
     'proof-of-work',
+    'drive',
     'notifications',
     'settings',
+    'admin',
   ],
   'Legal': [
     'dashboard',
@@ -107,6 +116,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'attendance-history',
     'leave-management',
     'proof-of-work',
+    'drive',
     'notifications',
     'settings',
   ],
@@ -120,6 +130,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'leave-management',
     'meetings',
     'proof-of-work',
+    'drive',
     'notifications',
     'settings',
   ],
@@ -274,4 +285,17 @@ export function getTeamForUser(user: User | null): string {
   if (!user) return 'Unknown';
   if (user.isSuperAdmin) return 'All Teams';
   return user.team || 'No Team';
+}
+
+export function canAccessAdminPanel(user: User | null): boolean {
+  if (!user) return false;
+  return user.isSuperAdmin || user.role === 'CTO' || user.role === 'COO';
+}
+
+export function canDeleteAllocatedTask(user: User | null, task: { createdBy?: string }): boolean {
+  if (!user || !task.createdBy) return false;
+  const deleterRoles = ['CEO', 'CTO', 'COO', 'CMO', 'DCMO', 'DCSO'];
+  const hasRole = user.isSuperAdmin || deleterRoles.includes(user.role);
+  if (!hasRole) return false;
+  return task.createdBy === user.name;
 }
