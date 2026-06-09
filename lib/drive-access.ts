@@ -29,6 +29,10 @@ export function getAccessibleDriveFolders(user: User | null): DriveFolder[] {
   if (canAccessAllDriveFolders(user)) {
     return DRIVE_FOLDERS.map((f) => f.id);
   }
+  // Business team members can also see the Legal folder
+  if (user.team === 'Business') {
+    return ['Business', 'Legal'];
+  }
   return [getUserDriveFolder(user)];
 }
 

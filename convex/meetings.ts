@@ -87,6 +87,7 @@ export const update = mutation({
     id: v.id("meetings"),
     status: v.optional(v.string()),
     minutesUrl: v.optional(v.string()),
+    meetLink: v.optional(v.string()),
     decisions: v.optional(v.string()),
   },
   handler: async (ctx, args) => {

@@ -32,6 +32,8 @@ function canAccessFolder(
   isSuperAdmin?: boolean,
 ): boolean {
   if (canAccessAllFolders(userRole, isSuperAdmin)) return true;
+  // Business team members can also read the Legal folder
+  if (folder === "Legal" && userTeam === "Business") return true;
   return resolveUserFolder(userTeam) === folder;
 }
 
@@ -49,6 +51,22 @@ export const getAll = query({
   args: {},
   handler: async (ctx) => {
     return await ctx.db.query("driveDocuments").order("desc").collect();
+  },
+});
+
+export const getAllAccessible = query({
+  args: {
+    userRole: v.string(),
+    userTeam: v.optional(v.string()),
+    isSuperAdmin: v.optional(v.boolean()),
+    accessibleFolders: v.array(driveFolderValidator),
+  },
+  handler: async (ctx, args) => {
+    const allDocs = await ctx.db.query("driveDocuments").order("desc").collect();
+    return allDocs.filter((doc) =>
+      canAccessFolder(doc.teamFolder as DriveFolder, args.userRole, args.userTeam, args.isSuperAdmin) &&
+      args.accessibleFolders.includes(doc.teamFolder as DriveFolder)
+    );
   },
 });
 

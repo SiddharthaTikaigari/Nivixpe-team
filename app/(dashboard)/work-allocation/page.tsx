@@ -28,8 +28,13 @@ export default function WorkAllocationPage() {
       return TEAM_MEMBERS
     }
     
-    // CSO sees Business team
+    // CSO sees Business team (including DCSO — mutual visibility)
     if (user.role === 'CSO') {
+      return TEAM_MEMBERS.filter(m => m.team === 'Business' || m.name === user.name)
+    }
+    
+    // DCSO sees Business team (including CSO — mutual visibility)
+    if (user.role === 'DCSO') {
       return TEAM_MEMBERS.filter(m => m.team === 'Business' || m.name === user.name)
     }
     
