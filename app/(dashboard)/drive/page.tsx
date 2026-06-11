@@ -14,6 +14,7 @@ import {
   FileText,
   ExternalLink,
   User,
+  Users,
 } from 'lucide-react';
 import { useState } from 'react';
 import { FileDropzone, uploadFileToConvex } from '@/components/file-dropzone';
@@ -57,6 +58,7 @@ export default function DrivePage() {
     description: '',
   });
   const [isUploading, setIsUploading] = useState(false);
+  const [selectedMember, setSelectedMember] = useState<string>('all');
 
   const accessibleFolders = user ? getAccessibleDriveFolders(user) : [];
   const canSeeAll = user ? canAccessAllDriveFolders(user) : false;
@@ -74,6 +76,12 @@ export default function DrivePage() {
         : 'skip',
     ) || [];
 
+  // Fetch all docs and filter client-side for the "Browse by Member" section
+  const allDocs = useQuery(api.driveDocuments.getAll) || [];
+  const allAccessibleDocs = allDocs.filter((doc) =>
+    accessibleFolders.includes(doc.teamFolder as DriveFolder),
+  );
+
   const generateUploadUrl = useMutation(api.files.generateUploadUrl);
   const createDocument = useMutation(api.driveDocuments.create);
   const removeDocument = useMutation(api.driveDocuments.remove);
@@ -85,13 +93,19 @@ export default function DrivePage() {
     return acc;
   }, {});
 
+  const allMemberNames = Array.from(new Set(allAccessibleDocs.map((d) => d.uploadedBy))).sort();
+
+  const memberFilteredDocs =
+    selectedMember === 'all'
+      ? allAccessibleDocs
+      : allAccessibleDocs.filter((d) => d.uploadedBy === selectedMember);
+
   const handleUpload = async () => {
     if (!user) return;
     if (!uploadFile && !uploadForm.externalLink.trim()) {
       alert('Please upload a file or provide a link.');
       return;
     }
-
     if (uploadFile) {
       const sizeError = validateFileSize(uploadFile);
       if (sizeError) {
@@ -99,14 +113,12 @@ export default function DrivePage() {
         return;
       }
     }
-
     setIsUploading(true);
     try {
       let storageId: Id<'_storage'> | undefined;
       if (uploadFile) {
         storageId = (await uploadFileToConvex(uploadFile, generateUploadUrl)) as Id<'_storage'>;
       }
-
       await createDocument({
         teamFolder: uploadForm.folder,
         uploadedBy: user.name,
@@ -119,14 +131,9 @@ export default function DrivePage() {
         externalLink: uploadForm.externalLink.trim() || undefined,
         description: uploadForm.description.trim() || undefined,
       });
-
       setShowUploadModal(false);
       setUploadFile(null);
-      setUploadForm({
-        folder: getDefaultUploadFolder(user),
-        externalLink: '',
-        description: '',
-      });
+      setUploadForm({ folder: getDefaultUploadFolder(user), externalLink: '', description: '' });
       alert('Document uploaded successfully!');
     } catch (error) {
       console.error(error);
@@ -216,6 +223,126 @@ export default function DrivePage() {
         <p className="text-sm text-muted-foreground">
           {DRIVE_FOLDERS.find((f) => f.id === activeFolder)?.description}
         </p>
+
+        {/* Browse by Member */}
+        <Card className="border-indigo-200 bg-indigo-50/40">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-indigo-900">
+              <Users className="h-5 w-5 text-indigo-600" />
+              Browse by Member
+            </CardTitle>
+            <p className="text-sm text-indigo-700 mt-1">
+              Find documents uploaded by a specific team member across all your accessible folders
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => setSelectedMember('all')}
+                className={cn(
+                  'px-4 py-2 rounded-full text-sm font-medium transition-colors border',
+                  selectedMember === 'all'
+                    ? 'bg-indigo-600 text-white border-indigo-600'
+                    : 'bg-white text-indigo-700 border-indigo-300 hover:bg-indigo-50',
+                )}
+              >
+                All Docs ({allAccessibleDocs.length})
+              </button>
+              {allMemberNames.map((name) => {
+                const count = allAccessibleDocs.filter((d) => d.uploadedBy === name).length;
+                return (
+                  <button
+                    key={name}
+                    onClick={() => setSelectedMember(name)}
+                    className={cn(
+                      'px-4 py-2 rounded-full text-sm font-medium transition-colors border flex items-center gap-1.5',
+                      selectedMember === name
+                        ? 'bg-indigo-600 text-white border-indigo-600'
+                        : 'bg-white text-indigo-700 border-indigo-300 hover:bg-indigo-50',
+                    )}
+                  >
+                    <User className="h-3.5 w-3.5" />
+                    {name}
+                    <span
+                      className={cn(
+                        'text-xs px-1.5 py-0.5 rounded-full',
+                        selectedMember === name
+                          ? 'bg-white/20 text-white'
+                          : 'bg-indigo-100 text-indigo-700',
+                      )}
+                    >
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {memberFilteredDocs.length > 0 ? (
+              <div className="space-y-2">
+                {memberFilteredDocs.map((doc) => (
+                  <div
+                    key={doc._id}
+                    className="flex items-start justify-between p-3 rounded-lg border border-indigo-100 bg-white"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <FileText className="h-4 w-4 text-indigo-500 shrink-0" />
+                        <p className="font-medium text-sm truncate">{doc.fileName}</p>
+                        <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full shrink-0">
+                          {doc.teamFolder}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 mt-1 ml-6">
+                        <User className="h-3 w-3 text-muted-foreground" />
+                        <span className="text-xs text-muted-foreground">{doc.uploadedBy}</span>
+                        <span className="text-xs text-muted-foreground">·</span>
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(doc.uploadedAt).toLocaleDateString()}
+                        </span>
+                      </div>
+                      {doc.description && (
+                        <p className="text-sm text-muted-foreground mt-1 ml-6">{doc.description}</p>
+                      )}
+                      <div className="flex flex-wrap items-center gap-3 mt-2 ml-6">
+                        {doc.storageId && <DocumentFileLink storageId={doc.storageId} />}
+                        {doc.externalLink && (
+                          <a
+                            href={doc.externalLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm text-blue-600 hover:underline inline-flex items-center gap-1"
+                          >
+                            <LinkIcon className="h-3 w-3" />
+                            Open link
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                    {(doc.uploadedByEmail === user.email || canSeeAll) && (
+                      <button
+                        onClick={() => handleDelete(doc._id, doc.fileName)}
+                        className="p-2 text-red-500 hover:bg-red-50 rounded shrink-0"
+                        title="Delete"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-10">
+                <Users className="h-10 w-10 text-indigo-300 mx-auto mb-2" />
+                <p className="text-muted-foreground text-sm">
+                  {selectedMember === 'all'
+                    ? 'No documents uploaded yet across your accessible folders'
+                    : `No documents uploaded by ${selectedMember} yet`}
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Documents by team member */}
         <Card className="border-border">
@@ -312,7 +439,7 @@ export default function DrivePage() {
               <CardContent className="space-y-5">
                 {canSeeAll && (
                   <div>
-                    <label className="block text-sm font-medium mb-2">Team Folder *</label>
+                    <label className="block text-sm font-medium mb-2">Team Folder</label>
                     <select
                       className="w-full px-3 py-2 border rounded"
                       value={uploadForm.folder}
