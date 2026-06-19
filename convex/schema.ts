@@ -70,6 +70,8 @@ export default defineSchema({
     ),
     workHours: v.optional(v.number()), // Total work hours in minutes
     approval: v.optional(v.string()),
+    currentSessionStart: v.optional(v.string()),
+    isPaused: v.optional(v.boolean()),
   })
     .index("by_date", ["date"])
     .index("by_email", ["email"])
@@ -133,6 +135,7 @@ export default defineSchema({
     submissionDate: v.string(),
     workDescription: v.string(),
     proofLink: v.optional(v.string()),
+    proofLinks: v.optional(v.array(v.string())),
     proofFile: v.optional(v.id("_storage")),
     status: v.union(
       v.literal("submitted"),
