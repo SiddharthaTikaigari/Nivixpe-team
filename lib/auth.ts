@@ -62,19 +62,20 @@ export const MOCK_USERS: Record<string, { password: string; user: User }> = {
       joinDate: '2020-03-10',
     },
   },
-  'cmo@nivixpe.com': {
-    password: 'cmo123',
-    user: {
-      id: '4',
-      email: 'cmo@nivixpe.com',
-      name: 'Abhiram',
-      role: 'CMO',
-      department: 'Marketing',
-      team: 'Marketing',
-      accessLevel: 'manager',
-      joinDate: '2020-04-15',
-    },
-  },
+  // CMO account temporarily disabled — uncomment below to re-enable
+  // 'cmo@nivixpe.com': {
+  //   password: 'cmo123',
+  //   user: {
+  //     id: '4',
+  //     email: 'cmo@nivixpe.com',
+  //     name: 'Abhiram',
+  //     role: 'CMO',
+  //     department: 'Marketing',
+  //     team: 'Marketing',
+  //     accessLevel: 'manager',
+  //     joinDate: '2020-04-15',
+  //   },
+  // },
   'dcso@nivixpe.com': {
     password: 'dcso123',
     user: {
