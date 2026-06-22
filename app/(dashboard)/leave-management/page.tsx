@@ -28,8 +28,8 @@ export default function LeaveManagementPage() {
     type: 'vacation' as 'vacation' | 'sick' | 'personal',
   });
   
-  // Only 4 heads can approve/reject: CEO (Sahith), CTO (Shubham), CSO (Swaraag), CMO (Abhiram)
-  const canApproveLeave = user?.isSuperAdmin || user?.role === 'CTO' || user?.role === 'CSO' || user?.role === 'CMO';
+  // 4 heads can approve/reject: CEO (Sahith), CTO (Shubham), CSO (Swaraag), COO (Siddhartha) — CMO account disabled
+  const canApproveLeave = user?.isSuperAdmin || user?.role === 'CTO' || user?.role === 'CSO' || user?.role === 'COO';
   
   // Show all requests for CEO/CTO, only own requests for others
   const displayRequests = canApproveLeave ? allLeaveRequests : myLeaveRequests;
@@ -208,7 +208,7 @@ export default function LeaveManagementPage() {
 
                 <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                   <p className="text-sm text-blue-900">
-                    <strong>Note:</strong> Your request will be sent to the approval team (CEO, CTO, CSO, or CMO). 
+                    <strong>Note:</strong> Your request will be sent to the approval team (CEO, CTO, CSO, or COO). 
                     You'll be notified once your request is reviewed.
                   </p>
                 </div>
@@ -248,7 +248,7 @@ export default function LeaveManagementPage() {
               <p className="ml-4">• <span className="font-medium text-amber-700">CEO (Sahith)</span> - Can approve all leave requests</p>
               <p className="ml-4">• <span className="font-medium text-blue-700">CTO (Shubham)</span> - Can approve all leave requests</p>
               <p className="ml-4">• <span className="font-medium text-green-700">CSO (Swaraag)</span> - Can approve all leave requests</p>
-              <p className="ml-4">• <span className="font-medium text-purple-700">CMO (Abhiram)</span> - Can approve all leave requests</p>
+              <p className="ml-4">• <span className="font-medium text-orange-700">COO (Siddhartha)</span> - Can approve all leave requests</p>
             </div>
           </CardContent>
         </Card>
@@ -261,7 +261,7 @@ export default function LeaveManagementPage() {
                 {user?.isSuperAdmin ? 'CEO Approval Dashboard' : 
                  user?.role === 'CTO' ? 'CTO Approval Dashboard' :
                  user?.role === 'CSO' ? 'CSO Approval Dashboard' :
-                 'CMO Approval Dashboard'}
+                 'COO Approval Dashboard'}
               </CardTitle>
             </CardHeader>
             <CardContent className="text-sm text-amber-900">

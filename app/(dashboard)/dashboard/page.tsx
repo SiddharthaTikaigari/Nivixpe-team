@@ -27,8 +27,8 @@ export default function DashboardPage() {
   const myProofOfWork = useQuery(api.proofOfWork.getBySubmitter, user ? { submittedBy: user.name } : "skip") || [];
   const updateTask = useMutation(api.workTasks.update);
   
-  // RBAC: CEO sees all, others see only their own
-  const displayTasks = user?.isSuperAdmin ? allTasks : myTasks;
+  // RBAC: CEO and COO see all tasks, others see only their own
+  const displayTasks = (user?.isSuperAdmin || user?.role === 'COO') ? allTasks : myTasks;
   
   const completedTasks = displayTasks.filter((t) => t.status === 'completed').length;
   const ongoingTasks = displayTasks.filter((t) => t.status === 'ongoing').length;
@@ -87,6 +87,24 @@ export default function DashboardPage() {
             <CardContent>
               <p className="text-sm text-amber-900">
                 Real-time access to all modules, teams, and administrative functions. All updates sync instantly across the organization.
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* COO Section */}
+        {user?.role === 'COO' && (
+          <Card className="border-blue-300 bg-blue-50">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0">
+              <CardTitle className="flex items-center gap-2">
+                <Briefcase className="h-5 w-5 text-blue-600" />
+                COO Dashboard - Cross-Department Oversight (Real-Time)
+              </CardTitle>
+              <span className="text-xs font-semibold text-blue-700">Operations Admin</span>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-blue-900">
+                Full visibility across all departments — Business, Legal, Technical, Marketing, and Design teams. Real-time task tracking and attendance across the entire organization.
               </p>
             </CardContent>
           </Card>
@@ -292,8 +310,8 @@ export default function DashboardPage() {
           </Card>
         </div>
 
-        {/* Team Overview by Department - CEO Only */}
-        {user?.isSuperAdmin && (
+        {/* Team Overview by Department - CEO and COO */}
+        {(user?.isSuperAdmin || user?.role === 'COO') && (
           <Card className="border-border">
             <CardHeader>
               <CardTitle>Team Hierarchy & Structure</CardTitle>
@@ -365,10 +383,29 @@ export default function DashboardPage() {
                     ))}
                   </div>
                 </div>
+
+                {/* Technical Team - visible to COO */}
+                <div className="border-l-4 border-orange-500 pl-4">
+                  <h3 className="font-semibold text-orange-700">Technical Team</h3>
+                  <p className="text-sm text-muted-foreground">Led by Shubham (CTO)</p>
+                  <div className="mt-2 space-y-1">
+                    {TEAM_MEMBERS.filter((m) => m.team === 'Technical').map((member) => (
+                      <div key={member.id} className="flex items-center justify-between text-sm">
+                        <span className="text-foreground">{member.name} - {member.role}</span>
+                        <span className={`text-xs px-2 py-1 rounded ${
+                          member.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                        }`}>
+                          {member.status === 'onLeave' ? 'On Leave' : 'Active'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>
         )}
+
 
         {proofTask && user && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
