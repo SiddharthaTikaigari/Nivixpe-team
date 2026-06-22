@@ -175,6 +175,20 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     'notifications',
     'settings',
   ],
+  'Developer 3': [
+    'dashboard',
+    'team-directory',
+    'work-tracker',
+    'work-allocation',
+    'attendance',
+    'attendance-history',
+    'leave-management',
+    'meetings',
+    'proof-of-work',
+    'drive',
+    'notifications',
+    'settings',
+  ],
 };
 
 export function canAccessPage(user: User | null, page: string): boolean {

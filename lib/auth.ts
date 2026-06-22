@@ -1,4 +1,4 @@
-export type UserRole = 'CEO' | 'CTO' | 'COO' | 'CSO' | 'CMO' | 'DCSO' | 'DCMO' | 'Legal' | 'Legal Intern' | 'Designer' | 'Admin' | 'Developer 1' | 'Developer 2';
+export type UserRole = 'CEO' | 'CTO' | 'COO' | 'CSO' | 'CMO' | 'DCSO' | 'DCMO' | 'Legal' | 'Legal Intern' | 'Designer' | 'Admin' | 'Developer 1' | 'Developer 2' | 'Developer 3';
 
 export interface User {
   id: string;
@@ -190,6 +190,19 @@ export const MOCK_USERS: Record<string, { password: string; user: User }> = {
       team: 'Legal',
       accessLevel: 'employee',
       joinDate: '2025-05-15',
+    },
+  },
+  'developer3@nivix.com': {
+    password: 'dev123',
+    user: {
+      id: '14',
+      email: 'developer3@nivix.com',
+      name: 'Nithin Sureddy',
+      role: 'Developer 3',
+      department: 'Technology',
+      team: 'Technical',
+      accessLevel: 'employee',
+      joinDate: '2025-05-01',
     },
   },
 };

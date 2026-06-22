@@ -212,6 +212,18 @@ export const TEAM_MEMBERS: TeamMember[] = [
     lastLogin: '2025-05-15 09:00',
     joinDate: '2025-05-15',
   },
+  {
+    id: '14',
+    name: 'Nithin Sureddy',
+    email: 'developer3@nivix.com',
+    role: 'Developer 3',
+    department: 'Technology',
+    team: 'Technical',
+    reportsTo: 'Shubham',
+    status: 'active',
+    lastLogin: '2025-05-02 09:35',
+    joinDate: '2025-05-01',
+  },
 ];
 
 // Daily work tasks
@@ -932,6 +944,13 @@ export const ATTENDANCE_RECORDS: AttendanceRecord[] = [
     date: '2025-05-02',
     email: 'developer2@nivixpe.com',
     loginTime: '09:30',
+    logoutTime: '18:00',
+    status: 'present',
+  },
+  {
+    date: '2025-05-02',
+    email: 'developer3@nivix.com',
+    loginTime: '09:35',
     logoutTime: '18:00',
     status: 'present',
   },
