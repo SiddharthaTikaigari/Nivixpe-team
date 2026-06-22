@@ -9,6 +9,7 @@ import { useAuth } from '@/app/providers';
 import { useState } from 'react';
 import { TEAM_MEMBERS } from '@/lib/mock-data';
 import { confirmDelete } from '@/lib/confirm-delete';
+import { toast } from 'sonner';
 
 export default function MeetingsPage() {
   const { user } = useAuth();
@@ -46,7 +47,7 @@ export default function MeetingsPage() {
     e.preventDefault();
     if (!canManageMeetings || !user) return;
     if (!scheduleFormData.title.trim()) {
-      alert('Please enter a meeting title.');
+      toast.warning('Please enter a meeting title.');
       return;
     }
 
@@ -64,10 +65,10 @@ export default function MeetingsPage() {
 
       setScheduleFormData({ title: '', date: '', time: '', attendees: [], agenda: '' });
       setShowScheduleForm(false);
-      alert('Meeting created successfully!');
+      toast.success('Meeting created successfully!');
     } catch (error) {
       console.error('Error creating meeting:', error);
-      alert(error instanceof Error ? error.message : 'Failed to create meeting.');
+      toast.error(error instanceof Error ? error.message : 'Failed to create meeting.');
     } finally {
       setIsScheduling(false);
     }
@@ -88,10 +89,10 @@ export default function MeetingsPage() {
 
       setMOMFormData({ minutesUrl: '', meetLink: '', decisions: '' });
       setShowMOMUpload(null);
-      alert('Minutes of Meeting saved successfully!');
+      toast.success('Minutes of Meeting saved successfully!');
     } catch (error) {
       console.error('Error saving MOM:', error);
-      alert('Failed to save MOM');
+      toast.error('Failed to save MOM');
     }
   };
 
@@ -110,10 +111,10 @@ export default function MeetingsPage() {
 
     try {
       await deleteMeeting({ id: meetingId });
-      alert('Meeting deleted successfully.');
+      toast.success('Meeting deleted successfully.');
     } catch (error) {
       console.error('Error deleting meeting:', error);
-      alert('Failed to delete meeting.');
+      toast.error('Failed to delete meeting.');
     }
   };
 

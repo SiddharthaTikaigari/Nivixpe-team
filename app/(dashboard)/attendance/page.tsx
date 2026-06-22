@@ -9,6 +9,7 @@ import { useState, useEffect } from 'react';
 import { CheckCircle, Clock, AlertCircle, Calendar, Timer } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { isNightShiftWorker, getAttendanceShiftNote, NIGHT_SHIFT_START } from '@/lib/attendance-shift';
+import { toast } from 'sonner';
 
 export default function AttendancePage() {
   const { user } = useAuth();
@@ -54,6 +55,49 @@ export default function AttendancePage() {
     a.status === 'present' && a.workHours !== undefined && a.workHours < 240
   ).length;
 
+  const getLiveWorkStats = () => {
+    if (!myAttendance) return { sessionMins: 0, totalMins: 0, isActive: false };
+    
+    const accumulatedMins = myAttendance.workHours || 0;
+    const activeStart = myAttendance.currentSessionStart;
+    const isPaused = myAttendance.isPaused;
+    
+    if (activeStart && !isPaused) {
+      const [startH, startM] = activeStart.split(':').map(Number);
+      
+      const now = new Date();
+      const currentH = now.getHours();
+      const currentM = now.getMinutes();
+      
+      let startMin = startH * 60 + startM;
+      let currentMin = currentH * 60 + currentM;
+      
+      if (currentMin < startMin) {
+        currentMin += 24 * 60; // Wrap around past midnight (e.g. night shift)
+      }
+      
+      const sessionMins = Math.max(0, currentMin - startMin);
+      return {
+        sessionMins,
+        totalMins: accumulatedMins + sessionMins,
+        isActive: true
+      };
+    }
+    
+    return {
+      sessionMins: 0,
+      totalMins: accumulatedMins,
+      isActive: false
+    };
+  };
+
+  const { sessionMins, totalMins, isActive } = getLiveWorkStats();
+  const formatMins = (mins: number) => {
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    return `${h}h ${m}m`;
+  };
+
   const handleMarkLogin = async () => {
     if (!user) return;
     
@@ -68,10 +112,10 @@ export default function AttendancePage() {
         status: 'present',
         workHours: 0,
       });
-      alert(`Attendance marked successfully! Remember to work minimum 4 hours.`);
+      toast.success(myAttendance?.isPaused ? `Resumed work session successfully!` : `Attendance marked successfully! Remember to work minimum 4 hours.`);
     } catch (error) {
       console.error('Error marking attendance:', error);
-      alert(error instanceof Error ? error.message : 'Failed to mark attendance. Please try again.');
+      toast.error(error instanceof Error ? error.message : 'Failed to mark attendance. Please try again.');
     }
   };
   
@@ -81,30 +125,40 @@ export default function AttendancePage() {
     const now = new Date();
     const logoutTime = now.toTimeString().split(' ')[0].substring(0, 5); // HH:MM format
     
-    // Calculate work hours
-    const loginParts = (myAttendance.loginTime || '00:00').split(':');
-    const logoutParts = logoutTime.split(':');
-    const loginMinutes = parseInt(loginParts[0]) * 60 + parseInt(loginParts[1]);
-    const logoutMinutes = parseInt(logoutParts[0]) * 60 + parseInt(logoutParts[1]);
-    const workMinutes = Math.max(0, logoutMinutes - loginMinutes);
-    const workHours = Math.floor(workMinutes / 60);
-    const workMins = workMinutes % 60;
+    // Compute what the new total hours will be for the alert message:
+    const sessionStart = myAttendance.currentSessionStart || myAttendance.loginTime || '00:00';
+    const [startH, startM] = sessionStart.split(':').map(Number);
+    const [endH, endM] = logoutTime.split(':').map(Number);
+    
+    let startMin = startH * 60 + startM;
+    let endMin = endH * 60 + endM;
+    if (endMin < startMin) endMin += 24 * 60;
+    
+    const sessionMinutes = Math.max(0, endMin - startMin);
+    const totalMinutes = (myAttendance.workHours || 0) + sessionMinutes;
+    const workHours = Math.floor(totalMinutes / 60);
+    const workMins = totalMinutes % 60;
     
     try {
       await updateAttendance({
         id: myAttendance._id,
         logoutTime: logoutTime,
-        workHours: workMinutes,
       });
       
-      if (workMinutes < 240) {
-        alert(`⚠️ Logout recorded: ${logoutTime}\nWork time: ${workHours}h ${workMins}m\n\nWARNING: Less than 4 hours minimum requirement!`);
+      if (totalMinutes < 240) {
+        toast.warning(`Logout recorded at ${logoutTime}`, {
+          description: `Total work time today: ${workHours}h ${workMins}m. (WARNING: Less than 4 hours minimum requirement!)`,
+          duration: 6000,
+        });
       } else {
-        alert(`✅ Logout recorded: ${logoutTime}\nWork time: ${workHours}h ${workMins}m\n\nGreat job meeting the 4-hour requirement!`);
+        toast.success(`Logout recorded at ${logoutTime}`, {
+          description: `Total work time today: ${workHours}h ${workMins}m. Great job meeting the 4-hour requirement!`,
+          duration: 6000,
+        });
       }
     } catch (error) {
       console.error('Error marking logout:', error);
-      alert('Failed to mark logout. Please try again.');
+      toast.error('Failed to mark logout. Please try again.');
     }
   };
 
@@ -126,37 +180,61 @@ export default function AttendancePage() {
               <div>
                 <p className="text-2xl font-bold text-blue-900">{new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
                 <p className="text-sm text-blue-700 mt-1">Current Time: {currentTime}</p>
+                {myAttendance && (
+                  <div className="mt-3 flex flex-wrap gap-3 items-center text-sm font-semibold">
+                    <span className="text-blue-800 bg-blue-100 px-3 py-1 rounded-full flex items-center gap-1.5 border border-blue-200">
+                      <Timer className="h-4 w-4 text-blue-600 animate-pulse" />
+                      Total Work Time: {formatMins(totalMins)}
+                      {isActive && <span className="inline-block w-2 h-2 rounded-full bg-green-500 animate-ping"></span>}
+                    </span>
+                    {isActive && (
+                      <span className="text-emerald-800 bg-emerald-100 px-3 py-1 rounded-full border border-emerald-200">
+                        Current Session: {formatMins(sessionMins)}
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
               {user && (
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2 items-end sm:items-center">
                   {!myAttendance ? (
                     <button
                       onClick={handleMarkLogin}
-                      className="px-4 py-2 bg-green-600 text-white rounded font-medium hover:bg-green-700 flex items-center gap-2"
+                      className="px-4 py-2 bg-green-600 text-white rounded font-medium hover:bg-green-700 flex items-center gap-2 cursor-pointer transition-colors shadow-sm"
                     >
                       <CheckCircle className="h-4 w-4" />
-                      Mark Login
+                      Start Work / Log In
                     </button>
                   ) : (
                     <>
-                      <div className="px-4 py-2 bg-green-100 text-green-800 rounded font-medium flex items-center gap-2">
-                        <CheckCircle className="h-4 w-4" />
-                        Logged In: {myAttendance.loginTime}
-                      </div>
-                      {!myAttendance.logoutTime && (
-                        <button
-                          onClick={handleMarkLogout}
-                          className="px-4 py-2 bg-blue-600 text-white rounded font-medium hover:bg-blue-700 flex items-center gap-2"
-                        >
-                          <Clock className="h-4 w-4" />
-                          Mark Logout
-                        </button>
-                      )}
-                      {myAttendance.logoutTime && (
-                        <div className="px-4 py-2 bg-blue-100 text-blue-800 rounded font-medium flex items-center gap-2">
-                          <Clock className="h-4 w-4" />
-                          Logged Out: {myAttendance.logoutTime}
-                        </div>
+                      {isActive ? (
+                        <>
+                          <div className="px-3 py-1.5 bg-green-100 text-green-800 rounded font-medium flex items-center gap-2 text-sm border border-green-200">
+                            <CheckCircle className="h-4 w-4 text-green-600" />
+                            Active Segment Start: {myAttendance.currentSessionStart || myAttendance.loginTime}
+                          </div>
+                          <button
+                            onClick={handleMarkLogout}
+                            className="px-4 py-2 bg-amber-600 text-white rounded font-medium hover:bg-amber-700 flex items-center gap-2 cursor-pointer transition-colors shadow-sm"
+                          >
+                            <Clock className="h-4 w-4" />
+                            Pause / Log Out
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <div className="px-3 py-1.5 bg-amber-100 text-amber-800 rounded font-medium flex items-center gap-2 text-sm border border-amber-200">
+                            <Clock className="h-4 w-4 text-amber-600" />
+                            Paused (Last Logout: {myAttendance.logoutTime})
+                          </div>
+                          <button
+                            onClick={handleMarkLogin}
+                            className="px-4 py-2 bg-green-600 text-white rounded font-medium hover:bg-green-700 flex items-center gap-2 cursor-pointer transition-colors shadow-sm"
+                          >
+                            <CheckCircle className="h-4 w-4" />
+                            Resume / Log In
+                          </button>
+                        </>
                       )}
                     </>
                   )}
@@ -306,7 +384,23 @@ export default function AttendancePage() {
                 <tbody>
                   {todayAttendance.length > 0 ? (
                     todayAttendance.map((record) => {
-                      const workMins = record.workHours || 0;
+                      // Calculate live work hours if they are currently active (for table view)
+                      let workMins = record.workHours || 0;
+                      const activeStart = record.currentSessionStart;
+                      const isPaused = record.isPaused;
+                      const isActiveSegment = activeStart && !isPaused;
+                      
+                      if (isActiveSegment) {
+                        const [startH, startM] = activeStart.split(':').map(Number);
+                        const now = new Date();
+                        const currentH = now.getHours();
+                        const currentM = now.getMinutes();
+                        let startMin = startH * 60 + startM;
+                        let currentMin = currentH * 60 + currentM;
+                        if (currentMin < startMin) currentMin += 24 * 60;
+                        workMins += Math.max(0, currentMin - startMin);
+                      }
+                      
                       const hours = Math.floor(workMins / 60);
                       const mins = workMins % 60;
                       const workTimeStr = `${hours}h ${mins}m`;
@@ -316,24 +410,38 @@ export default function AttendancePage() {
                         <tr key={record._id} className="border-b border-border hover:bg-muted/50 transition-colors">
                           <td className="py-3 px-4 text-foreground">{record.email}</td>
                           <td className="py-3 px-4">
-                            <span
-                              className={`inline-flex items-center px-2.5 py-1.5 rounded text-xs font-medium ${
-                                record.status === 'present'
-                                  ? 'bg-green-100 text-green-800'
-                                  : record.status === 'onLeave'
-                                    ? 'bg-blue-100 text-blue-800'
-                                    : 'bg-red-100 text-red-800'
-                              }`}
-                            >
-                              {record.status === 'onLeave' ? 'On Leave' : record.status.charAt(0).toUpperCase() + record.status.slice(1)}
-                            </span>
+                            {record.status === 'present' ? (
+                              record.isPaused ? (
+                                <span className="inline-flex items-center px-2.5 py-1.5 rounded text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200">
+                                  Paused
+                                </span>
+                              ) : !record.logoutTime ? (
+                                <span className="inline-flex items-center px-2.5 py-1.5 rounded text-xs font-medium bg-green-100 text-green-800 border border-green-200 animate-pulse">
+                                  Active
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center px-2.5 py-1.5 rounded text-xs font-medium bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                  Completed
+                                </span>
+                              )
+                            ) : (
+                              <span
+                                className={`inline-flex items-center px-2.5 py-1.5 rounded text-xs font-medium ${
+                                  record.status === 'onLeave'
+                                    ? 'bg-blue-100 text-blue-800 border border-blue-200'
+                                    : 'bg-red-100 text-red-800 border border-red-200'
+                                }`}
+                              >
+                                {record.status === 'onLeave' ? 'On Leave' : 'Absent'}
+                              </span>
+                            )}
                           </td>
                           <td className="py-3 px-4 text-muted-foreground">{record.loginTime || '—'}</td>
-                          <td className="py-3 px-4 text-muted-foreground">{record.logoutTime || '—'}</td>
+                          <td className="py-3 px-4 text-muted-foreground">{record.logoutTime || (isActiveSegment ? 'Active' : '—')}</td>
                           <td className="py-3 px-4">
-                            {record.logoutTime ? (
+                            {record.status === 'present' ? (
                               <span className={`inline-flex items-center px-2.5 py-1.5 rounded text-xs font-medium ${
-                                isSufficient ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'
+                                isSufficient ? 'bg-green-100 text-green-800 border border-green-200' : 'bg-orange-100 text-orange-800 border border-orange-200'
                               }`}>
                                 {workTimeStr} {!isSufficient && '⚠️'}
                               </span>

@@ -17,7 +17,6 @@ import type * as files from "../files.js";
 import type * as googleMeet from "../googleMeet.js";
 import type * as leaveRequests from "../leaveRequests.js";
 import type * as meetings from "../meetings.js";
-import type * as meetingsActions from "../meetingsActions.js";
 import type * as notifications from "../notifications.js";
 import type * as proofOfWork from "../proofOfWork.js";
 import type * as removeDuplicateTasks from "../removeDuplicateTasks.js";
@@ -41,7 +40,6 @@ declare const fullApi: ApiFromModules<{
   googleMeet: typeof googleMeet;
   leaveRequests: typeof leaveRequests;
   meetings: typeof meetings;
-  meetingsActions: typeof meetingsActions;
   notifications: typeof notifications;
   proofOfWork: typeof proofOfWork;
   removeDuplicateTasks: typeof removeDuplicateTasks;

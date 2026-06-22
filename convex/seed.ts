@@ -6,20 +6,55 @@ import { TEAM_MEMBERS, WORK_TASKS, ATTENDANCE_RECORDS, LEAVE_REQUESTS, MEETINGS 
 export const seedTeamMembers = internalMutation({
   args: {},
   handler: async (ctx) => {
-    for (const member of TEAM_MEMBERS) {
-      await ctx.db.insert("teamMembers", {
-        name: member.name,
-        email: member.email,
-        role: member.role,
-        department: member.department,
-        team: member.team as any,
-        reportsTo: member.reportsTo,
-        status: member.status,
-        lastLogin: member.lastLogin,
-        joinDate: member.joinDate,
-      });
+    // Delete obsolete team members
+    const allMembers = await ctx.db.query("teamMembers").collect();
+    const validEmails = new Set(TEAM_MEMBERS.map(m => m.email));
+    let deletedCount = 0;
+    for (const member of allMembers) {
+      if (!validEmails.has(member.email)) {
+        await ctx.db.delete(member._id);
+        deletedCount++;
+      }
     }
-    console.log(`Seeded ${TEAM_MEMBERS.length} team members`);
+    if (deletedCount > 0) {
+      console.log(`Deleted ${deletedCount} obsolete team members`);
+    }
+
+    let seededCount = 0;
+    let updatedCount = 0;
+    for (const member of TEAM_MEMBERS) {
+      const existing = await ctx.db
+        .query("teamMembers")
+        .withIndex("by_email", (q) => q.eq("email", member.email))
+        .first();
+      if (!existing) {
+        await ctx.db.insert("teamMembers", {
+          name: member.name,
+          email: member.email,
+          role: member.role,
+          department: member.department,
+          team: member.team as any,
+          reportsTo: member.reportsTo,
+          status: member.status,
+          lastLogin: member.lastLogin,
+          joinDate: member.joinDate,
+        });
+        seededCount++;
+      } else {
+        await ctx.db.patch(existing._id, {
+          name: member.name,
+          role: member.role,
+          department: member.department,
+          team: member.team as any,
+          reportsTo: member.reportsTo,
+          status: member.status,
+          lastLogin: member.lastLogin,
+          joinDate: member.joinDate,
+        });
+        updatedCount++;
+      }
+    }
+    console.log(`Seeded ${seededCount} new, updated ${updatedCount} team members out of ${TEAM_MEMBERS.length}`);
   },
 });
 

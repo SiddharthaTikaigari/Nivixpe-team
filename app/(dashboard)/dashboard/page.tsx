@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { useAuth } from '@/app/providers';
 import { Header } from '@/components/header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,9 +9,13 @@ import { api } from '@/convex/_generated/api';
 import { TEAM_MEMBERS } from '@/lib/mock-data';
 import { AlertCircle, CheckCircle, Clock, Users, Shield, Briefcase, FileCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Id } from '@/convex/_generated/dataModel';
+import { ProofSubmissionForm } from '@/components/proof-submission-form';
+import { toast } from 'sonner';
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const [proofTask, setProofTask] = useState<{ id: Id<'workTasks'>; title: string } | null>(null);
   
   // Get today's date
   const today = new Date().toISOString().split('T')[0];
@@ -50,10 +55,10 @@ export default function DashboardPage() {
         status: 'completed',
         completedDate: new Date().toISOString().split('T')[0],
       });
-      alert('Task marked as completed!');
+      toast.success('Task marked as completed!');
     } catch (error) {
       console.error('Error updating task:', error);
-      alert('Failed to update task status.');
+      toast.error('Failed to update task status.');
     }
   };
 
@@ -134,16 +139,21 @@ export default function DashboardPage() {
                       </span>
                       {task.status !== 'completed' && (
                         <button
-                          onClick={() => handleMarkAsDone(task._id)}
-                          disabled={!hasSubmittedPoW(task)}
-                          className={cn(
-                            "text-xs px-2 py-1 rounded border transition-colors",
-                            hasSubmittedPoW(task)
-                              ? "bg-green-600 text-white border-green-700 hover:bg-green-700"
-                              : "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
-                          )}
-                          title={!hasSubmittedPoW(task) ? "Submit Proof of Work first to mark as done" : "Mark task as completed"}
+                          onClick={() => {
+                            if (!hasSubmittedPoW(task)) {
+                              setProofTask({ id: task._id, title: task.title });
+                            } else {
+                              handleMarkAsDone(task._id);
+                            }
+                          }}
+                          className="text-xs px-2.5 py-1.5 rounded border transition-colors bg-green-600 text-white border-green-700 hover:bg-green-700 cursor-pointer font-medium shadow-sm flex items-center gap-1"
+                          title={
+                            !hasSubmittedPoW(task)
+                              ? 'Submit proof of work to complete this task'
+                              : 'Mark task as completed'
+                          }
                         >
+                          <CheckCircle className="h-3.5 w-3.5" />
                           Mark as Done
                         </button>
                       )}
@@ -178,19 +188,26 @@ export default function DashboardPage() {
                           <p className="text-xs text-muted-foreground mt-1">{pow.workDescription}</p>
                           <div className="flex items-center gap-2 mt-2">
                             <span className="text-xs text-muted-foreground">Submitted: {pow.submissionDate}</span>
-                            {pow.proofLink && (
-                              <>
+                            {(pow.proofLinks?.length
+                              ? pow.proofLinks
+                              : pow.proofLink
+                                ? [pow.proofLink]
+                                : []
+                            ).map((link, i) => (
+                              <span key={link}>
                                 <span className="text-xs text-muted-foreground">•</span>
-                                <a 
-                                  href={pow.proofLink} 
-                                  target="_blank" 
+                                <a
+                                  href={link}
+                                  target="_blank"
                                   rel="noopener noreferrer"
                                   className="text-xs text-indigo-600 hover:underline"
                                 >
-                                  View Proof
+                                  {pow.proofLinks && pow.proofLinks.length > 1
+                                    ? `Proof ${i + 1}`
+                                    : 'View Proof'}
                                 </a>
-                              </>
-                            )}
+                              </span>
+                            ))}
                           </div>
                         </div>
                         <span
@@ -351,6 +368,43 @@ export default function DashboardPage() {
               </div>
             </CardContent>
           </Card>
+        )}
+
+        {proofTask && user && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+              <CardHeader>
+                <CardTitle>Submit Proof: {proofTask.title}</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Upload a file, add links, and describe your work before marking this task done.
+                </p>
+              </CardHeader>
+              <CardContent>
+                <ProofSubmissionForm
+                  user={{ name: user.name, email: user.email }}
+                  tasks={myTasks.map((t) => ({ _id: t._id, title: t.title }))}
+                  initialTaskId={proofTask.id}
+                  initialTaskTitle={proofTask.title}
+                  onSuccess={async () => {
+                    const taskId = proofTask.id;
+                    setProofTask(null);
+                    try {
+                      await updateTask({
+                        id: taskId,
+                        status: 'completed',
+                        completedDate: new Date().toISOString().split('T')[0],
+                      });
+                      toast.success('Proof submitted and task marked as completed!');
+                    } catch (error) {
+                      console.error('Error auto-completing task:', error);
+                      toast.warning('Proof submitted successfully! Please click Mark as Done again.');
+                    }
+                  }}
+                  onCancel={() => setProofTask(null)}
+                />
+              </CardContent>
+            </Card>
+          </div>
         )}
       </div>
     </div>

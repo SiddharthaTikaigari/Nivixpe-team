@@ -6,14 +6,18 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { TEAM_MEMBERS } from '@/lib/mock-data';
 import { canAssignTasks, getAssignableMembers, getVisibleTasks, canDeleteAllocatedTask } from '@/lib/rbac';
 import { confirmDelete } from '@/lib/confirm-delete';
-import { CheckCircle, Clock, AlertCircle, Shield, Users, RefreshCw, User, Plus, X } from 'lucide-react';
+import { CheckCircle, Clock, AlertCircle, Shield, Users, RefreshCw, User, Plus, X, FileCheck } from 'lucide-react';
 import { useState } from 'react';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
+import { Id } from '@/convex/_generated/dataModel';
+import { ProofSubmissionForm } from '@/components/proof-submission-form';
+import { toast } from 'sonner';
 
 export default function WorkTrackerPage() {
   const { user } = useAuth();
   const [showAddTaskModal, setShowAddTaskModal] = useState(false);
+  const [proofTask, setProofTask] = useState<{ id: Id<'workTasks'>; title: string } | null>(null);
   const [selectedAssignee, setSelectedAssignee] = useState('');
   const [taskForm, setTaskForm] = useState({
     title: '',
@@ -29,6 +33,8 @@ export default function WorkTrackerPage() {
   const updateTask = useMutation(api.workTasks.update);
   const deleteTask = useMutation(api.workTasks.remove);
   const allProofOfWork = useQuery(api.proofOfWork.getAll) || [];
+  const myAssignedTasks =
+    useQuery(api.workTasks.getByAssignee, user ? { assignee: user.name } : 'skip') || [];
   
   // Get visible tasks based on user role
   const visibleTasks = getVisibleTasks(user, allTasks, TEAM_MEMBERS);
@@ -52,10 +58,10 @@ export default function WorkTrackerPage() {
         status: 'completed',
         completedDate: new Date().toISOString().split('T')[0],
       });
-      alert('Task marked as completed!');
+      toast.success('Task marked as completed!');
     } catch (error) {
       console.error('Error updating task:', error);
-      alert('Failed to update task status.');
+      toast.error('Failed to update task status.');
     }
   };
 
@@ -63,10 +69,10 @@ export default function WorkTrackerPage() {
     if (!confirmDelete('task', taskTitle)) return;
     try {
       await deleteTask({ id: taskId });
-      alert('Task deleted successfully!');
+      toast.success('Task deleted successfully!');
     } catch (error) {
       console.error('Error deleting task:', error);
-      alert('Failed to delete task.');
+      toast.error('Failed to delete task.');
     }
   };
 
@@ -148,7 +154,7 @@ export default function WorkTrackerPage() {
               <tbody>
                 {tasks.length > 0 ? (
                   tasks.map((task) => (
-                    <tr key={task.id} className="border-b hover:bg-muted/50">
+                    <tr key={task._id} className="border-b hover:bg-muted/50">
                       <td className="p-2">
                         <p className="font-medium">{task.title}</p>
                         {task.dueDate && task.dueDate !== 'Ongoing' && (
@@ -184,18 +190,24 @@ export default function WorkTrackerPage() {
                         )}
                       </td>
                       <td className="p-2 text-right">
-                        <div className="flex items-center justify-end gap-2">
+                        <div className="flex items-center justify-end gap-2 flex-wrap">
                           {task.status !== 'completed' && task.assignee === user?.name && (
                             <button
-                              onClick={() => handleMarkAsDone(task._id)}
-                              disabled={!hasSubmittedPoW(task)}
-                              className={`text-xs px-2 py-1 rounded border transition-colors ${
-                                hasSubmittedPoW(task)
-                                  ? "bg-green-600 text-white border-green-700 hover:bg-green-700"
-                                  : "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
-                              }`}
-                              title={!hasSubmittedPoW(task) ? "Submit Proof of Work first to mark as done" : "Mark task as completed"}
+                              onClick={() => {
+                                if (!hasSubmittedPoW(task)) {
+                                  setProofTask({ id: task._id, title: task.title });
+                                } else {
+                                  handleMarkAsDone(task._id);
+                                }
+                              }}
+                              className="text-xs px-2.5 py-1.5 rounded border transition-colors bg-green-600 text-white border-green-700 hover:bg-green-700 flex items-center gap-1 cursor-pointer font-medium shadow-sm"
+                              title={
+                                !hasSubmittedPoW(task)
+                                  ? 'Submit proof of work to complete this task'
+                                  : 'Mark task as completed'
+                              }
                             >
+                              <CheckCircle className="h-3.5 w-3.5" />
                               Mark as Done
                             </button>
                           )}
@@ -400,13 +412,13 @@ export default function WorkTrackerPage() {
                   <button
                     onClick={async () => {
                       if (!taskForm.title || !taskForm.dueDate) {
-                        alert('Please fill in task title and due date');
+                        toast.warning('Please fill in task title and due date');
                         return;
                       }
                       
                       const assigneeMember = TEAM_MEMBERS.find(m => m.name === selectedAssignee);
                       if (!assigneeMember) {
-                        alert('Invalid assignee');
+                        toast.error('Invalid assignee');
                         return;
                       }
 
@@ -426,10 +438,10 @@ export default function WorkTrackerPage() {
                         
                         setShowAddTaskModal(false);
                         setTaskForm({ title: '', dueDate: '', priority: 'medium', comments: '', coordinationWith: '' });
-                        alert('Task created successfully!');
+                        toast.success('Task created successfully!');
                       } catch (error) {
                         console.error('Error creating task:', error);
-                        alert('Failed to create task. Please try again.');
+                        toast.error('Failed to create task. Please try again.');
                       }
                     }}
                     className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
@@ -438,6 +450,43 @@ export default function WorkTrackerPage() {
                     Create Task
                   </button>
                 </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {proofTask && user && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+              <CardHeader>
+                <CardTitle>Submit Proof: {proofTask.title}</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Upload a file, add links, and describe your work before marking this task done.
+                </p>
+              </CardHeader>
+              <CardContent>
+                <ProofSubmissionForm
+                  user={{ name: user.name, email: user.email }}
+                  tasks={myAssignedTasks.map((t) => ({ _id: t._id, title: t.title }))}
+                  initialTaskId={proofTask.id}
+                  initialTaskTitle={proofTask.title}
+                  onSuccess={async () => {
+                    const taskId = proofTask.id;
+                    setProofTask(null);
+                    try {
+                      await updateTask({
+                        id: taskId,
+                        status: 'completed',
+                        completedDate: new Date().toISOString().split('T')[0],
+                      });
+                      toast.success('Proof submitted and task marked as completed!');
+                    } catch (error) {
+                      console.error('Error auto-completing task:', error);
+                      toast.warning('Proof submitted successfully! Please click Mark as Done again.');
+                    }
+                  }}
+                  onCancel={() => setProofTask(null)}
+                />
               </CardContent>
             </Card>
           </div>

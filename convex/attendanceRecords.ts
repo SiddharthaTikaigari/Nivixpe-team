@@ -51,6 +51,8 @@ export const create = mutation({
     status: v.string(),
     workHours: v.optional(v.number()),
     approval: v.optional(v.string()),
+    currentSessionStart: v.optional(v.string()),
+    isPaused: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     // Check if already marked for today
@@ -62,16 +64,46 @@ export const create = mutation({
       .first();
     
     if (existing) {
-      throw new Error("Attendance already marked for today");
+      if (existing.isPaused) {
+        // Resume attendance session
+        const loginTime = args.loginTime || new Date().toTimeString().split(' ')[0].substring(0, 5);
+        await ctx.db.patch(existing._id, {
+          isPaused: false,
+          currentSessionStart: loginTime,
+          logoutTime: undefined,
+        });
+
+        // Notify on resume
+        await ctx.db.insert("notifications", {
+          userId: args.email,
+          title: "Attendance Resumed",
+          message: `You resumed your work session at ${loginTime}. Your work hours tracking has resumed.`,
+          type: "attendance",
+          isRead: false,
+          createdAt: new Date().toISOString(),
+          link: "/attendance",
+        });
+
+        return existing._id;
+      } else {
+        throw new Error("You are already active and logged in today.");
+      }
     }
 
-    const attendanceId = await ctx.db.insert("attendanceRecords", args as any);
+    const loginTime = args.loginTime || new Date().toTimeString().split(' ')[0].substring(0, 5);
+    const attendanceId = await ctx.db.insert("attendanceRecords", {
+      ...args,
+      loginTime: loginTime,
+      currentSessionStart: loginTime,
+      isPaused: false,
+      workHours: 0,
+    } as any);
     
     // Notify on login
     await ctx.db.insert("notifications", {
       userId: args.email,
       title: "Attendance Marked",
-      message: `You logged in at ${args.loginTime}. Remember to work minimum 4 hours and mark logout.`,
+      message: `You logged in at ${loginTime}. Remember to work minimum 4 hours today.`,
       type: "attendance",
       isRead: false,
       createdAt: new Date().toISOString(),
@@ -99,19 +131,45 @@ export const update = mutation({
       throw new Error("Attendance record not found");
     }
 
-    await ctx.db.patch(id, updates as any);
+    let finalUpdates = { ...updates } as any;
+
+    if (updates.logoutTime) {
+      const sessionStart = attendance.currentSessionStart || attendance.loginTime || "00:00";
+      
+      // Calculate minutes between sessionStart and updates.logoutTime
+      const [startH, startM] = sessionStart.split(":").map(Number);
+      const [endH, endM] = updates.logoutTime.split(":").map(Number);
+      
+      let startMin = startH * 60 + startM;
+      let endMin = endH * 60 + endM;
+      
+      if (endMin < startMin) {
+        // Handle wrap-around past midnight
+        endMin += 24 * 60;
+      }
+      
+      const sessionMinutes = Math.max(0, endMin - startMin);
+      const newWorkHours = (attendance.workHours || 0) + sessionMinutes;
+      
+      finalUpdates.workHours = newWorkHours;
+      finalUpdates.isPaused = true;
+      finalUpdates.currentSessionStart = undefined; // Clear active session start
+    }
+
+    await ctx.db.patch(id, finalUpdates);
 
     // Notify on logout with work hours validation
-    if (updates.logoutTime && updates.workHours !== undefined) {
-      const hours = Math.floor(updates.workHours / 60);
-      const minutes = updates.workHours % 60;
+    const targetWorkHours = finalUpdates.workHours !== undefined ? finalUpdates.workHours : attendance.workHours;
+    if (updates.logoutTime && targetWorkHours !== undefined) {
+      const hours = Math.floor(targetWorkHours / 60);
+      const minutes = targetWorkHours % 60;
       const workTimeStr = `${hours}h ${minutes}m`;
       
-      if (updates.workHours < 240) { // Less than 4 hours (240 minutes)
+      if (targetWorkHours < 240) { // Less than 4 hours (240 minutes)
         await ctx.db.insert("notifications", {
           userId: attendance.email,
           title: "⚠️ Insufficient Work Hours",
-          message: `You logged out at ${updates.logoutTime}. Total work time: ${workTimeStr}. Minimum required: 4 hours.`,
+          message: `You paused/logged out at ${updates.logoutTime}. Total work time today: ${workTimeStr}. Minimum required: 4 hours.`,
           type: "attendance",
           isRead: false,
           createdAt: new Date().toISOString(),
@@ -121,7 +179,7 @@ export const update = mutation({
         await ctx.db.insert("notifications", {
           userId: attendance.email,
           title: "Logout Recorded",
-          message: `You logged out at ${updates.logoutTime}. Total work time: ${workTimeStr}. Great job!`,
+          message: `You paused/logged out at ${updates.logoutTime}. Total work time today: ${workTimeStr}. Great job!`,
           type: "attendance",
           isRead: false,
           createdAt: new Date().toISOString(),

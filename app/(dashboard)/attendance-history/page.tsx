@@ -56,7 +56,8 @@ export default function AttendanceHistoryPage() {
   }, [rawTeamMembers]);
 
   // Helper: Calculate work hours for a record
-  const calculateWorkHours = (login: string, logout?: string) => {
+  const calculateWorkHours = (login: string, logout?: string, recordWorkHours?: number) => {
+    if (recordWorkHours !== undefined && recordWorkHours > 0) return recordWorkHours;
     if (!logout) return 0;
     try {
       const startTime = parse(login, 'HH:mm', new Date());
@@ -98,7 +99,7 @@ export default function AttendanceHistoryPage() {
     const stats: Record<string, { totalHours: number, count: number, presentCount: number }> = {};
     historyWithRoles.forEach(r => {
       if (!stats[r.role]) stats[r.role] = { totalHours: 0, count: 0, presentCount: 0 };
-      stats[r.role].totalHours += calculateWorkHours(r.loginTime || '00:00', r.logoutTime);
+      stats[r.role].totalHours += calculateWorkHours(r.loginTime || '00:00', r.logoutTime, r.workHours);
       stats[r.role].count += 1;
       if (r.status === 'present') stats[r.role].presentCount += 1;
     });
@@ -139,10 +140,10 @@ export default function AttendanceHistoryPage() {
   const personHistory = historyWithRoles.filter(r => r.email === targetEmail).slice(0, 10).reverse();
   const personStats = useMemo(() => {
     const history = historyWithRoles.filter(r => r.email === targetEmail);
-    const totalMins = history.reduce((acc, r) => acc + calculateWorkHours(r.loginTime || '00:00', r.logoutTime), 0);
+    const totalMins = history.reduce((acc, r) => acc + calculateWorkHours(r.loginTime || '00:00', r.logoutTime, r.workHours), 0);
     const presentDays = history.filter(r => r.status === 'present').length;
     const insufficientDays = history.filter(r => {
-      const mins = calculateWorkHours(r.loginTime || '00:00', r.logoutTime);
+      const mins = calculateWorkHours(r.loginTime || '00:00', r.logoutTime, r.workHours);
       return mins > 0 && mins < 240;
     }).length;
     return {
@@ -155,7 +156,7 @@ export default function AttendanceHistoryPage() {
 
   const chartData = personHistory.map(r => ({
     date: format(new Date(r.date), 'MMM dd'),
-    hours: calculateWorkHours(r.loginTime || '00:00', r.logoutTime) / 60
+    hours: calculateWorkHours(r.loginTime || '00:00', r.logoutTime, r.workHours) / 60
   }));
 
   // Colors for roles
@@ -174,7 +175,7 @@ export default function AttendanceHistoryPage() {
       r.status,
       r.loginTime || '-',
       r.logoutTime || '-',
-      formatHours(calculateWorkHours(r.loginTime || '00:00', r.logoutTime))
+      formatHours(calculateWorkHours(r.loginTime || '00:00', r.logoutTime, r.workHours))
     ]);
 
     const csvContent = [headers, ...csvRows]
@@ -390,7 +391,7 @@ export default function AttendanceHistoryPage() {
                           }`}>
                             {record.status}
                           </span>
-                          {record.status === 'present' && record.logoutTime && calculateWorkHours(record.loginTime || '00:00', record.logoutTime) < 240 && (
+                          {record.status === 'present' && record.logoutTime && calculateWorkHours(record.loginTime || '00:00', record.logoutTime, record.workHours) < 240 && (
                             <span className="text-[9px] font-bold text-amber-600 uppercase">⚠️ Below 4h</span>
                           )}
                         </div>
@@ -406,11 +407,11 @@ export default function AttendanceHistoryPage() {
                         {record.logoutTime ? (
                           <span className={cn(
                             "text-sm font-bold px-3 py-1.5 rounded-lg border transition-all",
-                            calculateWorkHours(record.loginTime || '00:00', record.logoutTime) < 240 
+                            calculateWorkHours(record.loginTime || '00:00', record.logoutTime, record.workHours) < 240 
                               ? "bg-amber-50 text-amber-600 border-amber-100 group-hover:bg-amber-600 group-hover:text-white" 
                               : "bg-indigo-50/50 text-indigo-600 border-indigo-100 group-hover:bg-indigo-600 group-hover:text-white"
                           )}>
-                            {formatHours(calculateWorkHours(record.loginTime || '00:00', record.logoutTime))}
+                            {formatHours(calculateWorkHours(record.loginTime || '00:00', record.logoutTime, record.workHours))}
                           </span>
                         ) : (
                           <span className="text-sm font-medium text-slate-400">—</span>

@@ -3,16 +3,23 @@
 import { Header } from '@/components/header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/app/providers';
-import { useQuery, useMutation } from 'convex/react';
+import { useQuery } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { Id } from '@/convex/_generated/dataModel';
-import { Briefcase, CheckCircle, Calendar, Plus, Upload, ExternalLink, FileText } from 'lucide-react';
+import {
+  Briefcase,
+  CheckCircle,
+  Calendar,
+  Plus,
+  Upload,
+  ExternalLink,
+  FileText,
+  Link as LinkIcon,
+} from 'lucide-react';
 import { useState } from 'react';
 import { TEAM_MEMBERS } from '@/lib/mock-data';
 import { canViewTeamTasks, canAssignTasks } from '@/lib/rbac';
-import { FileDropzone, uploadFileToConvex } from '@/components/file-dropzone';
-import { validateFileSize } from '@/lib/file-upload';
-import { Link as LinkIcon } from 'lucide-react';
+import { ProofSubmissionForm } from '@/components/proof-submission-form';
 
 function ProofFileLink({ storageId }: { storageId: Id<'_storage'> }) {
   const url = useQuery(api.files.getFileUrl, { storageId });
@@ -22,31 +29,56 @@ function ProofFileLink({ storageId }: { storageId: Id<'_storage'> }) {
       href={url}
       target="_blank"
       rel="noopener noreferrer"
-      className="text-sm text-blue-600 hover:underline mt-2 inline-flex items-center gap-1"
+      className="text-sm text-blue-600 hover:underline inline-flex items-center gap-1"
     >
       <FileText className="h-3 w-3" />
-      View Uploaded File →
+      View uploaded file
     </a>
+  );
+}
+
+function ProofLinksList({
+  proofLinks,
+  proofLink,
+}: {
+  proofLinks?: string[];
+  proofLink?: string;
+}) {
+  const links =
+    proofLinks && proofLinks.length > 0
+      ? proofLinks
+      : proofLink
+        ? [proofLink]
+        : [];
+
+  if (links.length === 0) return null;
+
+  return (
+    <ul className="mt-2 space-y-1">
+      {links.map((link, i) => (
+        <li key={`${link}-${i}`}>
+          <a
+            href={link}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm text-blue-600 hover:underline inline-flex items-center gap-1"
+          >
+            <ExternalLink className="h-3 w-3" />
+            {links.length > 1 ? `Proof link ${i + 1}` : 'View proof link'}
+          </a>
+        </li>
+      ))}
+    </ul>
   );
 }
 
 export default function ProofOfWorkPage() {
   const { user } = useAuth();
   const [showSubmitModal, setShowSubmitModal] = useState(false);
-  const [proofFile, setProofFile] = useState<File | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitForm, setSubmitForm] = useState({
-    taskId: '' as string,
-    taskTitle: '',
-    workDescription: '',
-    proofLink: '',
-  });
 
   const allProofOfWork = useQuery(api.proofOfWork.getAll) || [];
-  const myTasks = useQuery(api.workTasks.getByAssignee, user ? { assignee: user.name } : 'skip') || [];
-
-  const generateUploadUrl = useMutation(api.files.generateUploadUrl);
-  const createProofOfWork = useMutation(api.proofOfWork.create);
+  const myTasks =
+    useQuery(api.workTasks.getByAssignee, user ? { assignee: user.name } : 'skip') || [];
 
   const canViewAll = user?.isSuperAdmin || user?.role === 'CTO';
   const isTeamHead = canAssignTasks(user) && !canViewAll;
@@ -59,88 +91,35 @@ export default function ProofOfWorkPage() {
   const approvedCount = displayProofOfWork.filter((p) => p.status === 'approved').length;
   const rejectedCount = displayProofOfWork.filter((p) => p.status === 'rejected').length;
 
-  const resetForm = () => {
-    setSubmitForm({ taskId: '', taskTitle: '', workDescription: '', proofLink: '' });
-    setProofFile(null);
-  };
-
-  const handleSubmit = async () => {
-    if (!user || !submitForm.taskTitle || !submitForm.workDescription) {
-      alert('Please fill in task title and work description');
-      return;
-    }
-
-    if (!proofFile && !submitForm.proofLink.trim()) {
-      alert('Please upload a file or provide a proof link');
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      if (proofFile) {
-        const sizeError = validateFileSize(proofFile);
-        if (sizeError) {
-          alert(sizeError);
-          setIsSubmitting(false);
-          return;
-        }
-      }
-
-      let storageId: Id<'_storage'> | undefined;
-      if (proofFile) {
-        storageId = (await uploadFileToConvex(proofFile, generateUploadUrl)) as Id<'_storage'>;
-      }
-
-      await createProofOfWork({
-        taskId:
-          submitForm.taskId && submitForm.taskId !== 'Other'
-            ? (submitForm.taskId as Id<'workTasks'>)
-            : undefined,
-        taskTitle: submitForm.taskTitle,
-        submittedBy: user.name,
-        submittedByEmail: user.email,
-        submissionDate: new Date().toISOString().split('T')[0],
-        workDescription: submitForm.workDescription,
-        proofLink: submitForm.proofLink.trim() || undefined,
-        proofFile: storageId,
-        status: 'submitted',
-      });
-
-      setShowSubmitModal(false);
-      resetForm();
-      alert('Proof of work submitted successfully!');
-    } catch (error) {
-      console.error('Error submitting proof of work:', error);
-      alert('Failed to submit proof of work. Please try again.');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  const taskOptions = myTasks.map((t) => ({ _id: t._id, title: t.title }));
 
   return (
     <div className="flex-1 overflow-y-auto">
       <Header
         title="Proof of Work"
-        subtitle="Submit and track work completion with proof"
+        subtitle="Submit file, links, and description before completing any task"
       />
 
       <div className="p-6 space-y-6">
         {user && (
           <Card className="border-blue-300 bg-blue-50">
             <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between flex-wrap gap-4">
                 <div>
-                  <h3 className="font-semibold text-blue-900">Submit Your Work</h3>
+                  <h3 className="font-semibold text-blue-900">Submit proof to complete a task</h3>
                   <p className="text-sm text-blue-700 mt-1">
-                    Drop your file, add a link, and describe your completed work
+                    Every task requires proof: upload files in the dropbox, add links, and write a
+                    description. Only then can you mark it done in Work Tracker.
                   </p>
-                  <p className="text-xs text-amber-700 mt-2 font-medium">
-                    Note: Maximum file size is 1.5 MB per document (same limit for everyone).
-                  </p>
+                  <ul className="text-xs text-blue-800 mt-2 space-y-0.5 list-disc list-inside">
+                    <li>File dropbox — screenshots, PDFs, exports</li>
+                    <li>Proof links — GitHub, Drive, Figma, demos</li>
+                    <li>Work description — what you delivered</li>
+                  </ul>
                 </div>
                 <button
                   onClick={() => setShowSubmitModal(true)}
-                  className="px-4 py-2 bg-blue-600 text-white rounded font-medium hover:bg-blue-700 flex items-center gap-2"
+                  className="px-4 py-2 bg-blue-600 text-white rounded font-medium hover:bg-blue-700 flex items-center gap-2 shrink-0"
                 >
                   <Plus className="h-4 w-4" />
                   Submit Proof of Work
@@ -206,47 +185,70 @@ export default function ProofOfWorkPage() {
                     }`}
                   >
                     <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-semibold text-foreground">{pow.taskTitle}</h3>
-                          <span
-                            className={`inline-flex px-2 py-1 rounded text-xs font-medium ${
-                              pow.status === 'approved'
-                                ? 'bg-green-600 text-white'
-                                : pow.status === 'submitted'
-                                  ? 'bg-yellow-600 text-white'
-                                  : 'bg-red-600 text-white'
-                            }`}
-                          >
-                            {pow.status.charAt(0).toUpperCase() + pow.status.slice(1)}
-                          </span>
+                      <div className="flex-1 space-y-3">
+                        <div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h3 className="font-semibold text-foreground">{pow.taskTitle}</h3>
+                            <span
+                              className={`inline-flex px-2 py-1 rounded text-xs font-medium ${
+                                pow.status === 'approved'
+                                  ? 'bg-green-600 text-white'
+                                  : pow.status === 'submitted'
+                                    ? 'bg-yellow-600 text-white'
+                                    : 'bg-red-600 text-white'
+                              }`}
+                            >
+                              {pow.status.charAt(0).toUpperCase() + pow.status.slice(1)}
+                            </span>
+                          </div>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            {pow.submittedBy} ({pow.submittedByEmail}) · {pow.submissionDate}
+                          </p>
                         </div>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          Submitted by: {pow.submittedBy} ({pow.submittedByEmail})
-                        </p>
-                        <p className="text-sm text-foreground mt-2">{pow.workDescription}</p>
-                        {pow.proofFile && <ProofFileLink storageId={pow.proofFile} />}
-                        {pow.proofLink && (
-                          <a
-                            href={pow.proofLink}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-sm text-blue-600 hover:underline mt-2 inline-flex items-center gap-1 block"
-                          >
-                            <ExternalLink className="h-3 w-3" />
-                            View Proof Link →
-                          </a>
-                        )}
-                        <p className="text-xs text-muted-foreground mt-2">
-                          Submitted on: {pow.submissionDate}
-                        </p>
+
+                        <div className="grid gap-3 sm:grid-cols-3 text-sm">
+                          <div className="rounded-md border bg-white/60 p-3">
+                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1 flex items-center gap-1">
+                              <Upload className="h-3 w-3" />
+                              Dropbox
+                            </p>
+                            {pow.proofFile ? (
+                              <ProofFileLink storageId={pow.proofFile} />
+                            ) : (
+                              <p className="text-xs text-muted-foreground">No file uploaded</p>
+                            )}
+                          </div>
+                          <div className="rounded-md border bg-white/60 p-3">
+                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1 flex items-center gap-1">
+                              <LinkIcon className="h-3 w-3" />
+                              Links
+                            </p>
+                            <ProofLinksList
+                              proofLinks={pow.proofLinks}
+                              proofLink={pow.proofLink}
+                            />
+                            {!pow.proofFile &&
+                              !pow.proofLink &&
+                              !(pow.proofLinks && pow.proofLinks.length > 0) && (
+                                <p className="text-xs text-muted-foreground">No links</p>
+                              )}
+                          </div>
+                          <div className="rounded-md border bg-white/60 p-3 sm:col-span-1">
+                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1 flex items-center gap-1">
+                              <FileText className="h-3 w-3" />
+                              Description
+                            </p>
+                            <p className="text-sm text-foreground">{pow.workDescription}</p>
+                          </div>
+                        </div>
+
                         {pow.reviewedBy && (
                           <p className="text-xs text-muted-foreground">
                             Reviewed by: {pow.reviewedBy}
                           </p>
                         )}
                         {pow.reviewComments && (
-                          <p className="text-xs text-muted-foreground mt-1">
+                          <p className="text-xs text-muted-foreground">
                             Comments: {pow.reviewComments}
                           </p>
                         )}
@@ -264,116 +266,25 @@ export default function ProofOfWorkPage() {
           </CardContent>
         </Card>
 
-        {showSubmitModal && (
+        {showSubmitModal && user && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
               <CardHeader>
                 <CardTitle>Submit Proof of Work</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  File dropbox, proof links, and description are all required to complete a task.
+                </p>
               </CardHeader>
-              <CardContent className="space-y-5">
-                <div>
-                  <label className="block text-sm font-medium mb-2">Task Title *</label>
-                  <select
-                    className="w-full px-3 py-2 border rounded"
-                    value={submitForm.taskId}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      if (val === 'Other') {
-                        setSubmitForm({ ...submitForm, taskId: 'Other', taskTitle: '' });
-                      } else if (val === '') {
-                        setSubmitForm({ ...submitForm, taskId: '', taskTitle: '' });
-                      } else {
-                        const task = myTasks.find((t) => t._id === val);
-                        setSubmitForm({ ...submitForm, taskId: val, taskTitle: task?.title || '' });
-                      }
-                    }}
-                  >
-                    <option value="">Select a task</option>
-                    {myTasks.map((task) => (
-                      <option key={task._id} value={task._id}>
-                        {task.title}
-                      </option>
-                    ))}
-                    <option value="Other">Other (Custom Task)</option>
-                  </select>
-                </div>
-
-                {submitForm.taskId === 'Other' && (
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Custom Task Title *</label>
-                    <input
-                      type="text"
-                      className="w-full px-3 py-2 border rounded"
-                      placeholder="Enter custom task title"
-                      value={submitForm.taskTitle}
-                      onChange={(e) =>
-                        setSubmitForm({ ...submitForm, taskTitle: e.target.value })
-                      }
-                    />
-                  </div>
-                )}
-
-                <FileDropzone
-                  file={proofFile}
-                  onFileChange={setProofFile}
-                  label="Drop your proof file here"
-                  hint="Drag & drop any file — screenshots, PDFs, docs, etc."
+              <CardContent>
+                <ProofSubmissionForm
+                  user={{ name: user.name, email: user.email }}
+                  tasks={taskOptions}
+                  onSuccess={() => {
+                    setShowSubmitModal(false);
+                    alert('Proof of work submitted! You can now mark the task as done in Work Tracker.');
+                  }}
+                  onCancel={() => setShowSubmitModal(false)}
                 />
-
-                <div>
-                  <label className="block text-sm font-medium mb-2">
-                    <LinkIcon className="h-4 w-4 inline mr-1" />
-                    Proof Link
-                  </label>
-                  <input
-                    type="url"
-                    className="w-full px-3 py-2 border rounded"
-                    placeholder="https://github.com/... or Google Drive link"
-                    value={submitForm.proofLink}
-                    onChange={(e) => setSubmitForm({ ...submitForm, proofLink: e.target.value })}
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Link to GitHub, Google Drive, Figma, or any proof of completion
-                  </p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium mb-2">Work Description *</label>
-                  <textarea
-                    className="w-full px-3 py-2 border rounded"
-                    rows={4}
-                    placeholder="Describe what you accomplished, key outcomes, and any notes..."
-                    value={submitForm.workDescription}
-                    onChange={(e) =>
-                      setSubmitForm({ ...submitForm, workDescription: e.target.value })
-                    }
-                  />
-                </div>
-
-                <div className="flex gap-2 justify-end">
-                  <button
-                    onClick={() => {
-                      setShowSubmitModal(false);
-                      resetForm();
-                    }}
-                    className="px-4 py-2 border rounded hover:bg-muted"
-                    disabled={isSubmitting}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleSubmit}
-                    className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
-                    disabled={
-                      isSubmitting ||
-                      !submitForm.taskTitle ||
-                      !submitForm.workDescription ||
-                      (!proofFile && !submitForm.proofLink.trim())
-                    }
-                  >
-                    {isSubmitting ? 'Submitting...' : 'Submit'}
-                  </button>
-                </div>
               </CardContent>
             </Card>
           </div>

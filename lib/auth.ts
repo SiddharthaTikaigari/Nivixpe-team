@@ -1,4 +1,4 @@
-export type UserRole = 'CEO' | 'CTO' | 'COO' | 'CSO' | 'CMO' | 'DCSO' | 'DCMO' | 'Legal' | 'Designer' | 'Admin';
+export type UserRole = 'CEO' | 'CTO' | 'COO' | 'CSO' | 'CMO' | 'DCSO' | 'DCMO' | 'Legal' | 'Legal Intern' | 'Designer' | 'Admin' | 'Developer 1' | 'Developer 2' | 'Developer 3';
 
 export interface User {
   id: string;
@@ -151,6 +151,58 @@ export const MOCK_USERS: Record<string, { password: string; user: User }> = {
       team: 'Legal',
       accessLevel: 'manager',
       joinDate: '2020-08-01',
+    },
+  },
+  'developer1@nivixpe.com': {
+    password: 'dev123',
+    user: {
+      id: '11',
+      email: 'developer1@nivixpe.com',
+      name: 'Ngan Nguyen',
+      role: 'Developer 1',
+      department: 'Technology',
+      team: 'Technical',
+      accessLevel: 'employee',
+      joinDate: '2025-05-01',
+    },
+  },
+  'developer2@nivixpe.com': {
+    password: 'dev123',
+    user: {
+      id: '12',
+      email: 'developer2@nivixpe.com',
+      name: 'Huy Ho',
+      role: 'Developer 2',
+      department: 'Technology',
+      team: 'Technical',
+      accessLevel: 'employee',
+      joinDate: '2025-05-01',
+    },
+  },
+  'legal2@nivixpe.com': {
+    password: 'dev123',
+    user: {
+      id: '13',
+      email: 'legal2@nivixpe.com',
+      name: 'Vinisha',
+      role: 'Legal Intern',
+      department: 'Legal & Compliance',
+      team: 'Legal',
+      accessLevel: 'employee',
+      joinDate: '2025-05-15',
+    },
+  },
+  'developer3@nivix.com': {
+    password: 'dev123',
+    user: {
+      id: '14',
+      email: 'developer3@nivix.com',
+      name: 'Nithin Sureddy',
+      role: 'Developer 3',
+      department: 'Technology',
+      team: 'Technical',
+      accessLevel: 'employee',
+      joinDate: '2025-05-01',
     },
   },
 };
