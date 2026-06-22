@@ -110,7 +110,7 @@ export const MOCK_USERS: Record<string, { password: string; user: User }> = {
       role: 'COO',
       department: 'Operations',
       team: 'Business',
-      accessLevel: 'manager',
+      accessLevel: 'admin',
       joinDate: '2020-05-01',
     },
   },
