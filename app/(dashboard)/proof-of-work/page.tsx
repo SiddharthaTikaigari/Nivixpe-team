@@ -77,6 +77,7 @@ export default function ProofOfWorkPage() {
   const { user } = useAuth();
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [filterPerson, setFilterPerson] = useState('all');
+  const [filterStatus, setFilterStatus] = useState('all');
 
   const allProofOfWork = useQuery(api.proofOfWork.getAll) || [];
   const myTasks =
@@ -92,8 +93,11 @@ export default function ProofOfWorkPage() {
     if (filterPerson !== 'all') {
       pows = pows.filter((pow) => pow.submittedBy === filterPerson);
     }
+    if (filterStatus !== 'all') {
+      pows = pows.filter((pow) => pow.status === filterStatus);
+    }
     return pows;
-  }, [allProofOfWork, user, filterPerson]);
+  }, [allProofOfWork, user, filterPerson, filterStatus]);
 
   const submittedCount = displayProofOfWork.filter((p) => p.status === 'submitted').length;
   const approvedCount = displayProofOfWork.filter((p) => p.status === 'approved').length;
@@ -186,20 +190,35 @@ export default function ProofOfWorkPage() {
                 {canViewAll ? 'All Submissions' : isTeamHead ? 'Team Submissions' : 'My Submissions'}
               </CardTitle>
               {(canViewAll || isTeamHead) && (
-                <div className="flex items-center gap-2">
-                  <User className="h-4 w-4 text-gray-400" />
-                  <select
-                    value={filterPerson}
-                    onChange={(e) => setFilterPerson(e.target.value)}
-                    className="px-3.5 py-2.5 rounded-lg border border-gray-300 bg-white text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all cursor-pointer hover:border-gray-400 min-w-[160px]"
-                  >
-                    <option value="all">All Members</option>
-                    {submitterNames.map((name) => (
-                      <option key={name} value={name}>
-                        {name}
-                      </option>
-                    ))}
-                  </select>
+                <div className="flex items-center flex-wrap gap-4">
+                  <div className="flex items-center gap-2">
+                    <User className="h-4 w-4 text-gray-400" />
+                    <select
+                      value={filterPerson}
+                      onChange={(e) => setFilterPerson(e.target.value)}
+                      className="px-3.5 py-2.5 rounded-lg border border-gray-300 bg-white text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all cursor-pointer hover:border-gray-400 min-w-[160px]"
+                    >
+                      <option value="all">All Members</option>
+                      {submitterNames.map((name) => (
+                        <option key={name} value={name}>
+                          {name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={filterStatus}
+                      onChange={(e) => setFilterStatus(e.target.value)}
+                      className="px-3.5 py-2.5 rounded-lg border border-gray-300 bg-white text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all cursor-pointer hover:border-gray-400 min-w-[160px]"
+                    >
+                      <option value="all">All Statuses</option>
+                      <option value="submitted">Submitted</option>
+                      <option value="approved">Approved</option>
+                      <option value="rejected">Rejected</option>
+                    </select>
+                  </div>
                 </div>
               )}
             </div>

@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils';
 import { confirmDelete } from '@/lib/confirm-delete';
 import { canAccessAdminPanel } from '@/lib/rbac';
 import { AlertCircle, CheckCircle, Clock, Shield, Users, RefreshCw, HardDrive, Database } from 'lucide-react';
+import { toast } from 'sonner';
 
 function formatBytes(bytes: number, decimals = 2) {
   if (!+bytes) return '0 Bytes';
@@ -28,6 +29,7 @@ export default function AdminPage() {
   const { user } = useAuth();
   const router = useRouter();
   const [isCleaning, setIsCleaning] = useState(false);
+  const [isRecalculating, setIsRecalculating] = useState(false);
 
   const allTasks = useQuery(api.workTasks.getAll) || [];
   const allMembers = useQuery(api.teamMembers.getAll) || [];
@@ -40,6 +42,8 @@ export default function AdminPage() {
   const masterCleanup = useMutation(api.teamMembers.masterCleanup);
   const deleteTask = useMutation(api.workTasks.remove);
   const createTask = useMutation(api.workTasks.create);
+  const backfillDrive = useMutation(api.driveDocuments.backfillFileSizes);
+  const backfillProof = useMutation(api.proofOfWork.backfillFileSizes);
 
   const hasAccess = canAccessAdminPanel(user);
 
@@ -189,14 +193,32 @@ export default function AdminPage() {
         </Card>
 
         {/* Storage Analytics Panel - Moved to Top */}
-        <Card className="border-border">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <HardDrive className="h-5 w-5 text-indigo-600" />
+        <Card className="border-indigo-100 shadow-sm overflow-hidden mb-8">
+          <CardHeader className="bg-indigo-50/50 border-b border-indigo-100 flex flex-row items-center justify-between">
+            <CardTitle className="text-lg font-bold flex items-center gap-2">
+              <Database className="h-5 w-5 text-indigo-600" />
               Database Storage Analytics
             </CardTitle>
+            <button
+              onClick={async () => {
+                setIsRecalculating(true);
+                try {
+                  await Promise.all([backfillDrive(), backfillProof()]);
+                  toast.success('Storage recalculated successfully!');
+                } catch (e) {
+                  toast.error('Failed to recalculate storage');
+                } finally {
+                  setIsRecalculating(false);
+                }
+              }}
+              disabled={isRecalculating}
+              className="px-4 py-2 bg-indigo-100 text-indigo-700 hover:bg-indigo-200 rounded-md text-sm font-medium flex items-center gap-2 transition-colors disabled:opacity-50"
+            >
+              <RefreshCw className={cn("h-4 w-4", isRecalculating && "animate-spin")} />
+              {isRecalculating ? 'Recalculating...' : 'Recalculate Size'}
+            </button>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-6">
             <div className="mb-6 p-4 bg-indigo-50 border border-indigo-200 rounded-xl flex items-center justify-between">
               <div className="flex-1 mr-6">
                 <div className="flex justify-between items-end mb-2">
