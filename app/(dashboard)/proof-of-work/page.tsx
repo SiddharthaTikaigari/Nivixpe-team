@@ -16,10 +16,11 @@ import {
   FileText,
   Link as LinkIcon,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { TEAM_MEMBERS } from '@/lib/mock-data';
 import { canViewTeamTasks, canAssignTasks } from '@/lib/rbac';
 import { ProofSubmissionForm } from '@/components/proof-submission-form';
+import { User } from 'lucide-react';
 
 function ProofFileLink({ storageId }: { storageId: Id<'_storage'> }) {
   const url = useQuery(api.files.getFileUrl, { storageId });
@@ -75,6 +76,7 @@ function ProofLinksList({
 export default function ProofOfWorkPage() {
   const { user } = useAuth();
   const [showSubmitModal, setShowSubmitModal] = useState(false);
+  const [filterPerson, setFilterPerson] = useState('all');
 
   const allProofOfWork = useQuery(api.proofOfWork.getAll) || [];
   const myTasks =
@@ -83,13 +85,26 @@ export default function ProofOfWorkPage() {
   const canViewAll = user?.isSuperAdmin || user?.role === 'CTO';
   const isTeamHead = canAssignTasks(user) && !canViewAll;
 
-  const displayProofOfWork = allProofOfWork.filter((pow) =>
-    canViewTeamTasks(user, pow.submittedBy, TEAM_MEMBERS),
-  );
+  const displayProofOfWork = useMemo(() => {
+    let pows = allProofOfWork.filter((pow) =>
+      canViewTeamTasks(user, pow.submittedBy, TEAM_MEMBERS),
+    );
+    if (filterPerson !== 'all') {
+      pows = pows.filter((pow) => pow.submittedBy === filterPerson);
+    }
+    return pows;
+  }, [allProofOfWork, user, filterPerson]);
 
   const submittedCount = displayProofOfWork.filter((p) => p.status === 'submitted').length;
   const approvedCount = displayProofOfWork.filter((p) => p.status === 'approved').length;
   const rejectedCount = displayProofOfWork.filter((p) => p.status === 'rejected').length;
+
+  const submitterNames = useMemo(() => {
+    const names = new Set(allProofOfWork.filter((pow) =>
+      canViewTeamTasks(user, pow.submittedBy, TEAM_MEMBERS)
+    ).map((pow) => pow.submittedBy));
+    return Array.from(names).sort();
+  }, [allProofOfWork, user]);
 
   const taskOptions = myTasks.map((t) => ({ _id: t._id, title: t.title }));
 
@@ -119,7 +134,7 @@ export default function ProofOfWorkPage() {
                 </div>
                 <button
                   onClick={() => setShowSubmitModal(true)}
-                  className="px-4 py-2 bg-blue-600 text-white rounded font-medium hover:bg-blue-700 flex items-center gap-2 shrink-0"
+                  className="px-5 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 flex items-center gap-2 shrink-0 transition-all shadow-sm hover:shadow-md text-sm"
                 >
                   <Plus className="h-4 w-4" />
                   Submit Proof of Work
@@ -166,9 +181,28 @@ export default function ProofOfWorkPage() {
 
         <Card className="border-border">
           <CardHeader>
-            <CardTitle>
-              {canViewAll ? 'All Submissions' : isTeamHead ? 'Team Submissions' : 'My Submissions'}
-            </CardTitle>
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <CardTitle>
+                {canViewAll ? 'All Submissions' : isTeamHead ? 'Team Submissions' : 'My Submissions'}
+              </CardTitle>
+              {(canViewAll || isTeamHead) && (
+                <div className="flex items-center gap-2">
+                  <User className="h-4 w-4 text-gray-400" />
+                  <select
+                    value={filterPerson}
+                    onChange={(e) => setFilterPerson(e.target.value)}
+                    className="px-3.5 py-2.5 rounded-lg border border-gray-300 bg-white text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all cursor-pointer hover:border-gray-400 min-w-[160px]"
+                  >
+                    <option value="all">All Members</option>
+                    {submitterNames.map((name) => (
+                      <option key={name} value={name}>
+                        {name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">

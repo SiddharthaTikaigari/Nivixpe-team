@@ -87,6 +87,7 @@ export const update = mutation({
     id: v.id("meetings"),
     status: v.optional(v.string()),
     minutesUrl: v.optional(v.string()),
+    minutesFile: v.optional(v.id("_storage")),
     meetLink: v.optional(v.string()),
     decisions: v.optional(v.string()),
   },

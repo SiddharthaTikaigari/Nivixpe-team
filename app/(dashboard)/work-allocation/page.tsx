@@ -1,15 +1,21 @@
 'use client'
 
 import { useAuth } from '@/app/providers'
+import { useRouter } from 'next/navigation'
 import { Header } from '@/components/header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { PageFilterBar } from '@/components/page-filter-bar'
 import { useQuery } from 'convex/react'
 import { api } from '@/convex/_generated/api'
 import { TEAM_MEMBERS } from '@/lib/mock-data'
 import { Shield } from 'lucide-react'
+import { useState, useMemo } from 'react'
 
 export default function WorkAllocationPage() {
   const { user } = useAuth()
+  const router = useRouter()
+  const [filterTeam, setFilterTeam] = useState('all')
+  const [filterPerson, setFilterPerson] = useState('all')
   
   // Real-time queries
   const allTasks = useQuery(api.workTasks.getAll) || []
@@ -48,9 +54,14 @@ export default function WorkAllocationPage() {
       return TEAM_MEMBERS.filter(m => m.team === 'Marketing' || m.name === user.name)
     }
     
-    // COO sees Marketing, Design, and Operations teams
+    // COO sees all teams
     if (user.role === 'COO') {
-      return TEAM_MEMBERS.filter(m => m.team === 'Marketing' || m.team === 'Design' || m.department === 'Operations' || m.name === user.name)
+      return TEAM_MEMBERS
+    }
+
+    // Legal head sees Legal team
+    if (user.role === 'Legal') {
+      return TEAM_MEMBERS.filter(m => m.team === 'Legal' || m.name === user.name)
     }
     
     // Everyone else sees only themselves
@@ -58,10 +69,22 @@ export default function WorkAllocationPage() {
   }
   
   const visibleMembers = getVisibleMembers()
+
+  // Apply filters
+  const filteredMembers = useMemo(() => {
+    let result = visibleMembers
+    if (filterTeam !== 'all') {
+      result = result.filter(m => m.team === filterTeam)
+    }
+    if (filterPerson !== 'all') {
+      result = result.filter(m => m.name === filterPerson)
+    }
+    return result
+  }, [visibleMembers, filterTeam, filterPerson])
   
-  // Calculate work distribution for visible members
+  // Calculate work distribution for filtered members
   const getTeamWorkStats = () => {
-    return visibleMembers.map((member) => {
+    return filteredMembers.map((member) => {
       const memberTasks = allTasks.filter((t) => t.assignee === member.name)
       const completed = memberTasks.filter((t) => t.status === 'completed').length
       const ongoing = memberTasks.filter((t) => t.status === 'ongoing').length
@@ -109,7 +132,7 @@ export default function WorkAllocationPage() {
                   : 'As CTO, you have full system access to view and manage all team work allocation and technical oversight.'
                 }
               </p>
-              <div className="bg-white rounded border border-purple-200 p-3 space-y-2">
+              <div className="bg-white rounded-lg border border-purple-200 p-3 space-y-2">
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-purple-900">Business Team (Swaraag)</span>
                   <span className="font-semibold text-purple-700">
@@ -131,7 +154,13 @@ export default function WorkAllocationPage() {
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-purple-900">Legal Team (Kashish)</span>
                   <span className="font-semibold text-purple-700">
-                    {TEAM_MEMBERS.filter((m) => m.team === 'Legal').length} member
+                    {TEAM_MEMBERS.filter((m) => m.team === 'Legal').length} members
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-purple-900">Technical Team (Shubham)</span>
+                  <span className="font-semibold text-purple-700">
+                    {TEAM_MEMBERS.filter((m) => m.team === 'Technical').length} members
                   </span>
                 </div>
               </div>
@@ -140,7 +169,7 @@ export default function WorkAllocationPage() {
         )}
 
         {/* Team Lead Notice */}
-        {!user?.isSuperAdmin && user?.role !== 'CTO' && (user?.role === 'CSO' || user?.role === 'CMO' || user?.role === 'DCMO' || user?.role === 'COO') && (
+        {!user?.isSuperAdmin && user?.role !== 'CTO' && (user?.role === 'CSO' || user?.role === 'CMO' || user?.role === 'DCMO' || user?.role === 'COO' || user?.role === 'Legal') && (
           <Card className="border-blue-300 bg-blue-50">
             <CardContent className="pt-6">
               <p className="text-sm text-blue-900">
@@ -150,13 +179,22 @@ export default function WorkAllocationPage() {
           </Card>
         )}
 
+        {/* Filter Bar */}
+        <PageFilterBar
+          onTeamChange={setFilterTeam}
+          onPersonChange={setFilterPerson}
+          selectedTeam={filterTeam}
+          selectedPerson={filterPerson}
+          visibleMembers={visibleMembers}
+        />
+
         {/* Work Distribution */}
         <Card className="border-border">
           <CardHeader>
             <CardTitle>
               {user?.isSuperAdmin || user?.role === 'CTO' 
                 ? 'Team Workload Distribution' 
-                : visibleMembers.length > 1
+                : filteredMembers.length > 1
                 ? 'Team Workload Distribution'
                 : 'My Workload'}
             </CardTitle>
@@ -168,6 +206,7 @@ export default function WorkAllocationPage() {
                   <tr>
                     <th className="px-4 py-3 text-left font-semibold text-gray-700">Team Member</th>
                     <th className="px-4 py-3 text-left font-semibold text-gray-700">Role</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-700">Team</th>
                     <th className="px-4 py-3 text-center font-semibold text-gray-700">Total Tasks</th>
                     <th className="px-4 py-3 text-center font-semibold text-gray-700">
                       <span className="text-green-700">Completed</span>
@@ -186,9 +225,25 @@ export default function WorkAllocationPage() {
                     const completionRate =
                       member.totalTasks > 0 ? Math.round((member.completed / member.totalTasks) * 100) : 0
                     return (
-                      <tr key={member.id} className="hover:bg-gray-50 transition-colors">
+                      <tr 
+                        key={member.id} 
+                        className="hover:bg-gray-50 transition-colors cursor-pointer"
+                        onClick={() => router.push(`/work-tracker?user=${encodeURIComponent(member.name)}`)}
+                      >
                         <td className="px-4 py-3 text-gray-900 font-medium">{member.name}</td>
                         <td className="px-4 py-3 text-gray-600">{member.role}</td>
+                        <td className="px-4 py-3">
+                          <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${
+                            member.team === 'Business' ? 'bg-blue-100 text-blue-700' :
+                            member.team === 'Legal' ? 'bg-purple-100 text-purple-700' :
+                            member.team === 'Technical' ? 'bg-emerald-100 text-emerald-700' :
+                            member.team === 'Marketing' ? 'bg-orange-100 text-orange-700' :
+                            member.team === 'Design' ? 'bg-pink-100 text-pink-700' :
+                            'bg-gray-100 text-gray-700'
+                          }`}>
+                            {member.team || 'N/A'}
+                          </span>
+                        </td>
                         <td className="px-4 py-3 text-center text-gray-900 font-semibold">{member.totalTasks}</td>
                         <td className="px-4 py-3 text-center text-green-700 font-semibold">{member.completed}</td>
                         <td className="px-4 py-3 text-center text-yellow-700 font-semibold">{member.ongoing}</td>
@@ -216,26 +271,42 @@ export default function WorkAllocationPage() {
         {/* Workload by Member */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {teamStats.map((member) => (
-            <Card key={member.id} className="border-border">
+            <Card 
+              key={member.id} 
+              className="border-border hover:shadow-md transition-shadow cursor-pointer"
+              onClick={() => router.push(`/work-tracker?user=${encodeURIComponent(member.name)}`)}
+            >
               <CardHeader>
-                <CardTitle className="text-base">{member.name}</CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base">{member.name}</CardTitle>
+                  <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${
+                    member.team === 'Business' ? 'bg-blue-100 text-blue-700' :
+                    member.team === 'Legal' ? 'bg-purple-100 text-purple-700' :
+                    member.team === 'Technical' ? 'bg-emerald-100 text-emerald-700' :
+                    member.team === 'Marketing' ? 'bg-orange-100 text-orange-700' :
+                    member.team === 'Design' ? 'bg-pink-100 text-pink-700' :
+                    'bg-gray-100 text-gray-700'
+                  }`}>
+                    {member.team || 'N/A'}
+                  </span>
+                </div>
                 <p className="text-sm text-muted-foreground">{member.role}</p>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between p-2 rounded bg-green-50">
+                  <div className="flex items-center justify-between p-2.5 rounded-lg bg-green-50">
                     <span className="text-sm text-green-700 font-medium">Completed</span>
                     <span className="text-lg font-bold text-green-700">{member.completed}</span>
                   </div>
-                  <div className="flex items-center justify-between p-2 rounded bg-yellow-50">
+                  <div className="flex items-center justify-between p-2.5 rounded-lg bg-yellow-50">
                     <span className="text-sm text-yellow-700 font-medium">Ongoing</span>
                     <span className="text-lg font-bold text-yellow-700">{member.ongoing}</span>
                   </div>
-                  <div className="flex items-center justify-between p-2 rounded bg-red-50">
+                  <div className="flex items-center justify-between p-2.5 rounded-lg bg-red-50">
                     <span className="text-sm text-red-700 font-medium">Missed</span>
                     <span className="text-lg font-bold text-red-700">{member.missed}</span>
                   </div>
-                  <div className="flex items-center justify-between p-2 rounded bg-blue-50">
+                  <div className="flex items-center justify-between p-2.5 rounded-lg bg-blue-50">
                     <span className="text-sm text-blue-700 font-medium">Total</span>
                     <span className="text-lg font-bold text-blue-700">{member.totalTasks}</span>
                   </div>

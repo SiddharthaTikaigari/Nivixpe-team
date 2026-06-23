@@ -7,6 +7,7 @@ import { api } from '@/convex/_generated/api';
 import { CheckCircle, AlertCircle, Clock, Info, Plus } from 'lucide-react';
 import { useAuth } from '@/app/providers';
 import { useState } from 'react';
+import { toast } from 'sonner';
 
 export default function LeaveManagementPage() {
   const { user } = useAuth();
@@ -33,14 +34,25 @@ export default function LeaveManagementPage() {
   
   // Show all requests for CEO/CTO, only own requests for others
   const displayRequests = canApproveLeave ? allLeaveRequests : myLeaveRequests;
-  
-  const approvedCount = displayRequests.filter((lr) => lr.status === 'approved').length;
-  const pendingCount = displayRequests.filter((lr) => lr.status === 'pending').length;
-  const rejectedCount = displayRequests.filter((lr) => lr.status === 'rejected').length;
 
-  const approved = displayRequests.filter((lr) => lr.status === 'approved');
-  const pending = displayRequests.filter((lr) => lr.status === 'pending');
-  const rejected = displayRequests.filter((lr) => lr.status === 'rejected');
+  const [filterPerson, setFilterPerson] = useState('all');
+  const [filterStatus, setFilterStatus] = useState('all');
+
+  const filteredRequests = displayRequests.filter((lr) => {
+    if (filterPerson !== 'all' && lr.employeeName !== filterPerson) return false;
+    if (filterStatus !== 'all' && lr.status !== filterStatus) return false;
+    return true;
+  });
+
+  const employeeNames = Array.from(new Set(allLeaveRequests.map((lr) => lr.employeeName))).sort();
+  
+  const approvedCount = filteredRequests.filter((lr) => lr.status === 'approved').length;
+  const pendingCount = filteredRequests.filter((lr) => lr.status === 'pending').length;
+  const rejectedCount = filteredRequests.filter((lr) => lr.status === 'rejected').length;
+
+  const approved = filteredRequests.filter((lr) => lr.status === 'approved');
+  const pending = filteredRequests.filter((lr) => lr.status === 'pending');
+  const rejected = filteredRequests.filter((lr) => lr.status === 'rejected');
 
   const handleApprove = async (requestId: any) => {
     if (!canApproveLeave || !user) return;
@@ -50,9 +62,10 @@ export default function LeaveManagementPage() {
         status: 'approved',
         approvedBy: user.name,
       });
+      toast.success('Leave approved successfully');
     } catch (error) {
       console.error('Error approving leave:', error);
-      alert('Failed to approve leave request');
+      toast.error('Failed to approve leave request');
     }
   };
 
@@ -64,9 +77,10 @@ export default function LeaveManagementPage() {
         status: 'rejected',
         approvedBy: user.name,
       });
+      toast.success('Leave rejected successfully');
     } catch (error) {
       console.error('Error rejecting leave:', error);
-      alert('Failed to reject leave request');
+      toast.error('Failed to reject leave request');
     }
   };
 
@@ -93,10 +107,10 @@ export default function LeaveManagementPage() {
         type: 'vacation',
       });
       setShowRequestForm(false);
-      alert('Leave request submitted successfully!');
+      toast.success('Leave request submitted successfully!');
     } catch (error) {
       console.error('Error submitting leave request:', error);
-      alert('Failed to submit leave request');
+      toast.error('Failed to submit leave request');
     }
   };
 
@@ -117,7 +131,7 @@ export default function LeaveManagementPage() {
             </div>
             <button
               onClick={() => setShowRequestForm(!showRequestForm)}
-              className="flex items-center gap-2 px-8 py-4 bg-white text-purple-700 rounded-lg hover:bg-purple-50 transition-colors shadow-lg font-bold text-lg"
+              className="flex items-center gap-2 px-8 py-3 bg-white text-purple-800 rounded-full font-bold shadow-lg hover:bg-purple-50 hover:shadow-xl transition-all transform hover:-translate-y-0.5 border-none outline-none text-lg"
             >
               <Plus className="h-6 w-6" />
               {showRequestForm ? 'Cancel Request' : 'Request Leave'}
@@ -193,14 +207,14 @@ export default function LeaveManagementPage() {
                 <div className="flex items-center gap-3 pt-2">
                   <button
                     type="submit"
-                    className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium"
+                    className="btn-primary"
                   >
                     Submit Request
                   </button>
                   <button
                     type="button"
                     onClick={() => setShowRequestForm(false)}
-                    className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+                    className="btn-secondary"
                   >
                     Cancel
                   </button>
@@ -282,41 +296,72 @@ export default function LeaveManagementPage() {
           </Card>
         )}
 
-        {/* Summary */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card className="border-border">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Approved</CardTitle>
-              <CheckCircle className="h-4 w-4 text-green-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{approvedCount}</div>
-              <p className="text-xs text-muted-foreground">requests approved</p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-border">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Pending</CardTitle>
+              <CardTitle className="text-sm font-medium">Pending Approvals</CardTitle>
               <Clock className="h-4 w-4 text-yellow-600" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{pendingCount}</div>
-              <p className="text-xs text-muted-foreground">awaiting approval</p>
+              <p className="text-xs text-muted-foreground">awaiting review</p>
             </CardContent>
           </Card>
 
           <Card className="border-border">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Rejected</CardTitle>
+              <CardTitle className="text-sm font-medium">Approved Leaves</CardTitle>
+              <CheckCircle className="h-4 w-4 text-green-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{approvedCount}</div>
+              <p className="text-xs text-muted-foreground">verified and approved</p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-border">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Rejected Leaves</CardTitle>
               <AlertCircle className="h-4 w-4 text-red-600" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{rejectedCount}</div>
-              <p className="text-xs text-muted-foreground">requests rejected</p>
+              <p className="text-xs text-muted-foreground">declined requests</p>
             </CardContent>
           </Card>
         </div>
+
+        {/* Filters */}
+        {canApproveLeave && (
+          <Card className="border-border">
+            <CardHeader>
+              <CardTitle>Filter Requests</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-wrap gap-4">
+              <select
+                value={filterPerson}
+                onChange={(e) => setFilterPerson(e.target.value)}
+                className="px-3.5 py-2.5 rounded-lg border border-gray-300 bg-white text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500/30 transition-all cursor-pointer min-w-[200px]"
+              >
+                <option value="all">All Employees</option>
+                {employeeNames.map((name) => (
+                  <option key={name} value={name}>{name}</option>
+                ))}
+              </select>
+
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="px-3.5 py-2.5 rounded-lg border border-gray-300 bg-white text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500/30 transition-all cursor-pointer min-w-[160px]"
+              >
+                <option value="all">All Statuses</option>
+                <option value="pending">Pending</option>
+                <option value="approved">Approved</option>
+                <option value="rejected">Rejected</option>
+              </select>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Pending Requests - Show first for approval */}
         {pending.length > 0 && (
@@ -352,13 +397,13 @@ export default function LeaveManagementPage() {
                           <>
                             <button 
                               onClick={() => handleApprove(request._id)}
-                              className="px-3 py-1 bg-green-600 text-white rounded text-xs font-medium hover:bg-green-700"
+                              className="btn-success py-1.5 px-4 text-xs"
                             >
                               Approve
                             </button>
                             <button 
                               onClick={() => handleReject(request._id)}
-                              className="px-3 py-1 bg-red-600 text-white rounded text-xs font-medium hover:bg-red-700"
+                              className="btn-danger py-1.5 px-4 text-xs"
                             >
                               Reject
                             </button>

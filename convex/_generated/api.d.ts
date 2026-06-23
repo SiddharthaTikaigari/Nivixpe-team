@@ -21,6 +21,7 @@ import type * as notifications from "../notifications.js";
 import type * as proofOfWork from "../proofOfWork.js";
 import type * as removeDuplicateTasks from "../removeDuplicateTasks.js";
 import type * as seed from "../seed.js";
+import type * as seedLegalTasks from "../seedLegalTasks.js";
 import type * as teamMembers from "../teamMembers.js";
 import type * as workTasks from "../workTasks.js";
 
@@ -44,6 +45,7 @@ declare const fullApi: ApiFromModules<{
   proofOfWork: typeof proofOfWork;
   removeDuplicateTasks: typeof removeDuplicateTasks;
   seed: typeof seed;
+  seedLegalTasks: typeof seedLegalTasks;
   teamMembers: typeof teamMembers;
   workTasks: typeof workTasks;
 }>;

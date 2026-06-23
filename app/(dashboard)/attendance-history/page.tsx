@@ -298,7 +298,7 @@ export default function AttendanceHistoryPage() {
                 >
                   <option value="">Myself ({user?.name})</option>
                   {teamMembers.filter(m => m.email !== user?.email).map(m => (
-                    <option key={m.id} value={m.email}>{m.name}</option>
+                    <option key={m._id} value={m.email}>{m.name}</option>
                   ))}
                 </select>
               </div>

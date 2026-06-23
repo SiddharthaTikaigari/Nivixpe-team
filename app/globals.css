@@ -264,3 +264,46 @@
     @apply min-h-[44px] min-w-[44px];
   }
 }
+
+/* Global Button Enhancements */
+button:not([class*="p-0"]):not([class*="sidebar"]):not([class*="rounded-full"]) {
+  transition: all 0.2s ease;
+}
+
+/* Ensure all action buttons have adequate sizing */
+@layer utilities {
+  .btn-action {
+    @apply px-4 py-2.5 text-sm font-medium rounded-lg transition-all shadow-sm hover:shadow-md;
+  }
+
+  .btn-action-sm {
+    @apply px-3.5 py-2 text-sm font-medium rounded-lg transition-all;
+  }
+
+  .btn-action-lg {
+    @apply px-6 py-3 text-base font-medium rounded-lg transition-all shadow-sm hover:shadow-md;
+  }
+}
+
+
+/* Premium Button Aesthetics */
+@layer utilities {
+  .btn-primary {
+    @apply px-4 py-2.5 font-semibold text-white rounded-xl shadow-[0_4px_14px_0_rgba(0,118,255,0.39)] bg-blue-600 hover:bg-blue-700 hover:shadow-[0_6px_20px_rgba(0,118,255,0.23)] hover:-translate-y-0.5 transition-all duration-200 active:translate-y-0 flex items-center justify-center gap-2;
+    background-image: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  }
+  
+  .btn-secondary {
+    @apply px-4 py-2.5 font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl shadow-sm hover:shadow-md hover:border-slate-300 hover:bg-slate-50 transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 flex items-center justify-center gap-2;
+  }
+  
+  .btn-danger {
+    @apply px-4 py-2.5 font-semibold text-white rounded-xl shadow-[0_4px_14px_0_rgba(220,38,38,0.39)] bg-red-600 hover:bg-red-700 hover:shadow-[0_6px_20px_rgba(220,38,38,0.23)] hover:-translate-y-0.5 transition-all duration-200 active:translate-y-0 flex items-center justify-center gap-2;
+    background-image: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  }
+
+  .btn-success {
+    @apply px-4 py-2.5 font-semibold text-white rounded-xl shadow-[0_4px_14px_0_rgba(16,185,129,0.39)] bg-emerald-600 hover:bg-emerald-700 hover:shadow-[0_6px_20px_rgba(16,185,129,0.23)] hover:-translate-y-0.5 transition-all duration-200 active:translate-y-0 flex items-center justify-center gap-2;
+    background-image: linear-gradient(135deg, #10b981 0%, #047857 100%);
+  }
+}

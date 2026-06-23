@@ -5,6 +5,7 @@ export interface TeamMember {
   role: string;
   department: string;
   team?: 'Business' | 'Legal' | 'Technical' | 'Marketing' | 'Design';
+  additionalTeams?: string[];
   reportsTo?: string;
   status: 'active' | 'onLeave' | 'inactive';
   lastLogin?: string;
@@ -64,6 +65,7 @@ export const TEAM_MEMBERS: TeamMember[] = [
     role: 'CEO',
     department: 'Executive',
     team: 'Business',
+    additionalTeams: ['Legal', 'Technical'],
     status: 'active',
     lastLogin: '2025-05-02 08:55',
     joinDate: '2020-01-15',
@@ -135,6 +137,7 @@ export const TEAM_MEMBERS: TeamMember[] = [
     role: 'COO',
     department: 'Operations',
     team: 'Business',
+    additionalTeams: ['Technical'],
     reportsTo: 'Sahith',
     status: 'active',
     lastLogin: '2025-05-02 08:52',
@@ -167,7 +170,7 @@ export const TEAM_MEMBERS: TeamMember[] = [
   {
     id: '10',
     name: 'Kashish',
-    email: 'legal@nivixpe.com',
+    email: 'legal1@nivixpe.com',
     role: 'Legal',
     department: 'Legal & Compliance',
     team: 'Legal',

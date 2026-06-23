@@ -15,8 +15,9 @@ import {
   ExternalLink,
   User,
   Users,
+  Search,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { FileDropzone, uploadFileToConvex } from '@/components/file-dropzone';
 import {
   DRIVE_FOLDERS,
@@ -28,6 +29,7 @@ import {
 import { validateFileSize } from '@/lib/file-upload';
 import { cn } from '@/lib/utils';
 import { confirmDelete } from '@/lib/confirm-delete';
+import { TEAM_MEMBERS } from '@/lib/mock-data';
 
 function DocumentFileLink({ storageId }: { storageId: Id<'_storage'> }) {
   const url = useQuery(api.files.getFileUrl, { storageId });
@@ -76,7 +78,7 @@ export default function DrivePage() {
         : 'skip',
     ) || [];
 
-  // Fetch all docs and filter client-side for the "Browse by Member" section
+  // Fetch all docs for member filtering
   const allDocs = useQuery(api.driveDocuments.getAll) || [];
   const allAccessibleDocs = allDocs.filter((doc) =>
     accessibleFolders.includes(doc.teamFolder as DriveFolder),
@@ -86,19 +88,33 @@ export default function DrivePage() {
   const createDocument = useMutation(api.driveDocuments.create);
   const removeDocument = useMutation(api.driveDocuments.remove);
 
-  const groupedByMember = documents.reduce<Record<string, typeof documents>>((acc, doc) => {
+  // Get unique member names from accessible docs
+  const allMemberNames = useMemo(() => 
+    Array.from(new Set(allAccessibleDocs.map((d) => d.uploadedBy))).sort(),
+    [allAccessibleDocs]
+  );
+
+  // Get all team members for the dropdown (not just those who uploaded)
+  const availableTeamMembers = useMemo(() => {
+    return TEAM_MEMBERS.map(m => m.name).sort();
+  }, []);
+
+  // Filter documents: combine folder filter + member filter
+  const displayedDocuments = useMemo(() => {
+    let docs = documents;
+    if (selectedMember !== 'all') {
+      docs = docs.filter((d) => d.uploadedBy === selectedMember);
+    }
+    return docs;
+  }, [documents, selectedMember]);
+
+  // Group by member for display
+  const groupedByMember = displayedDocuments.reduce<Record<string, typeof displayedDocuments>>((acc, doc) => {
     const key = doc.uploadedBy;
     if (!acc[key]) acc[key] = [];
     acc[key].push(doc);
     return acc;
   }, {});
-
-  const allMemberNames = Array.from(new Set(allAccessibleDocs.map((d) => d.uploadedBy))).sort();
-
-  const memberFilteredDocs =
-    selectedMember === 'all'
-      ? allAccessibleDocs
-      : allAccessibleDocs.filter((d) => d.uploadedBy === selectedMember);
 
   const handleUpload = async () => {
     if (!user) return;
@@ -144,7 +160,7 @@ export default function DrivePage() {
   };
 
   const handleDelete = async (id: Id<'driveDocuments'>, fileName: string) => {
-    if (!user || !confirmDelete('document', fileName)) return;
+    if (!user || !(await confirmDelete('document', fileName))) return;
     try {
       await removeDocument({
         id,
@@ -192,7 +208,7 @@ export default function DrivePage() {
                   }));
                   setShowUploadModal(true);
                 }}
-                className="px-4 py-2 bg-blue-600 text-white rounded font-medium hover:bg-blue-700 flex items-center gap-2"
+                className="px-5 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 flex items-center gap-2 transition-all shadow-sm hover:shadow-md text-sm"
               >
                 <Upload className="h-4 w-4" />
                 Upload Document
@@ -201,155 +217,77 @@ export default function DrivePage() {
           </CardContent>
         </Card>
 
-        {/* Folder Tabs */}
-        <div className="flex flex-wrap gap-2">
-          {DRIVE_FOLDERS.filter((f) => accessibleFolders.includes(f.id)).map((folder) => (
-            <button
-              key={folder.id}
-              onClick={() => setActiveFolder(folder.id)}
-              className={cn(
-                'px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors',
-                activeFolder === folder.id
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-muted text-muted-foreground hover:bg-muted/80',
-              )}
+        {/* Filters Row: Folder Tabs + Member Dropdown */}
+        <div className="flex flex-wrap items-center gap-4 p-4 bg-gradient-to-r from-slate-50 to-gray-50 rounded-xl border border-gray-200/80 shadow-sm">
+          {/* Team Folder Tabs */}
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <FolderOpen className="h-4 w-4 text-gray-400 shrink-0" />
+            <div className="flex flex-wrap gap-2">
+              {DRIVE_FOLDERS.filter((f) => accessibleFolders.includes(f.id)).map((folder) => (
+                <button
+                  key={folder.id}
+                  onClick={() => setActiveFolder(folder.id)}
+                  className={cn(
+                    'px-4 py-2.5 rounded-lg text-sm font-medium flex items-center gap-2 transition-all',
+                    activeFolder === folder.id
+                      ? 'bg-primary text-primary-foreground shadow-md'
+                      : 'bg-white text-muted-foreground hover:bg-muted/80 border border-gray-200',
+                  )}
+                >
+                  {folder.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Member Dropdown */}
+          <div className="flex items-center gap-2 shrink-0">
+            <User className="h-4 w-4 text-gray-400" />
+            <select
+              value={selectedMember}
+              onChange={(e) => setSelectedMember(e.target.value)}
+              className="px-3.5 py-2.5 rounded-lg border border-gray-300 bg-white text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all cursor-pointer hover:border-gray-400 min-w-[180px]"
             >
-              <FolderOpen className="h-4 w-4" />
-              {folder.label}
+              <option value="all">All Members ({documents.length} docs)</option>
+              {availableTeamMembers.map((name) => {
+                const count = documents.filter((d) => d.uploadedBy === name).length;
+                return (
+                  <option key={name} value={name}>
+                    {name} ({count} docs)
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+
+          {selectedMember !== 'all' && (
+            <button
+              onClick={() => setSelectedMember('all')}
+              className="px-3.5 py-2 rounded-lg text-sm font-medium text-red-600 bg-red-50 border border-red-200 hover:bg-red-100 transition-all"
+            >
+              Clear
             </button>
-          ))}
+          )}
         </div>
 
         <p className="text-sm text-muted-foreground">
           {DRIVE_FOLDERS.find((f) => f.id === activeFolder)?.description}
+          {selectedMember !== 'all' && (
+            <span className="ml-2 text-indigo-600 font-medium">
+              — Filtered by: {selectedMember}
+            </span>
+          )}
         </p>
 
-        {/* Browse by Member */}
-        <Card className="border-indigo-200 bg-indigo-50/40">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-indigo-900">
-              <Users className="h-5 w-5 text-indigo-600" />
-              Browse by Member
-            </CardTitle>
-            <p className="text-sm text-indigo-700 mt-1">
-              Find documents uploaded by a specific team member across all your accessible folders
-            </p>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                onClick={() => setSelectedMember('all')}
-                className={cn(
-                  'px-4 py-2 rounded-full text-sm font-medium transition-colors border',
-                  selectedMember === 'all'
-                    ? 'bg-indigo-600 text-white border-indigo-600'
-                    : 'bg-white text-indigo-700 border-indigo-300 hover:bg-indigo-50',
-                )}
-              >
-                All Docs ({allAccessibleDocs.length})
-              </button>
-              {allMemberNames.map((name) => {
-                const count = allAccessibleDocs.filter((d) => d.uploadedBy === name).length;
-                return (
-                  <button
-                    key={name}
-                    onClick={() => setSelectedMember(name)}
-                    className={cn(
-                      'px-4 py-2 rounded-full text-sm font-medium transition-colors border flex items-center gap-1.5',
-                      selectedMember === name
-                        ? 'bg-indigo-600 text-white border-indigo-600'
-                        : 'bg-white text-indigo-700 border-indigo-300 hover:bg-indigo-50',
-                    )}
-                  >
-                    <User className="h-3.5 w-3.5" />
-                    {name}
-                    <span
-                      className={cn(
-                        'text-xs px-1.5 py-0.5 rounded-full',
-                        selectedMember === name
-                          ? 'bg-white/20 text-white'
-                          : 'bg-indigo-100 text-indigo-700',
-                      )}
-                    >
-                      {count}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-
-            {memberFilteredDocs.length > 0 ? (
-              <div className="space-y-2">
-                {memberFilteredDocs.map((doc) => (
-                  <div
-                    key={doc._id}
-                    className="flex items-start justify-between p-3 rounded-lg border border-indigo-100 bg-white"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <FileText className="h-4 w-4 text-indigo-500 shrink-0" />
-                        <p className="font-medium text-sm truncate">{doc.fileName}</p>
-                        <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full shrink-0">
-                          {doc.teamFolder}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2 mt-1 ml-6">
-                        <User className="h-3 w-3 text-muted-foreground" />
-                        <span className="text-xs text-muted-foreground">{doc.uploadedBy}</span>
-                        <span className="text-xs text-muted-foreground">·</span>
-                        <span className="text-xs text-muted-foreground">
-                          {new Date(doc.uploadedAt).toLocaleDateString()}
-                        </span>
-                      </div>
-                      {doc.description && (
-                        <p className="text-sm text-muted-foreground mt-1 ml-6">{doc.description}</p>
-                      )}
-                      <div className="flex flex-wrap items-center gap-3 mt-2 ml-6">
-                        {doc.storageId && <DocumentFileLink storageId={doc.storageId} />}
-                        {doc.externalLink && (
-                          <a
-                            href={doc.externalLink}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-sm text-blue-600 hover:underline inline-flex items-center gap-1"
-                          >
-                            <LinkIcon className="h-3 w-3" />
-                            Open link
-                          </a>
-                        )}
-                      </div>
-                    </div>
-                    {(doc.uploadedByEmail === user.email || canSeeAll) && (
-                      <button
-                        onClick={() => handleDelete(doc._id, doc.fileName)}
-                        className="p-2 text-red-500 hover:bg-red-50 rounded shrink-0"
-                        title="Delete"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-10">
-                <Users className="h-10 w-10 text-indigo-300 mx-auto mb-2" />
-                <p className="text-muted-foreground text-sm">
-                  {selectedMember === 'all'
-                    ? 'No documents uploaded yet across your accessible folders'
-                    : `No documents uploaded by ${selectedMember} yet`}
-                </p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Documents by team member */}
+        {/* Documents List */}
         <Card className="border-border">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <FolderOpen className="h-5 w-5" />
               {DRIVE_FOLDERS.find((f) => f.id === activeFolder)?.label} — Team Documents
+              <span className="text-sm font-normal text-muted-foreground ml-2">
+                ({displayedDocuments.length} document{displayedDocuments.length !== 1 ? 's' : ''})
+              </span>
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -405,7 +343,7 @@ export default function DrivePage() {
                           {(doc.uploadedByEmail === user.email || canSeeAll) && (
                             <button
                               onClick={() => handleDelete(doc._id, doc.fileName)}
-                              className="p-2 text-red-500 hover:bg-red-50 rounded shrink-0"
+                              className="p-2.5 text-red-500 hover:bg-red-50 rounded-lg shrink-0 transition-all"
                               title="Delete"
                             >
                               <Trash2 className="h-4 w-4" />
@@ -420,7 +358,11 @@ export default function DrivePage() {
             ) : (
               <div className="text-center py-12">
                 <FolderOpen className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-                <p className="text-muted-foreground">No documents in this folder yet</p>
+                <p className="text-muted-foreground">
+                  {selectedMember !== 'all'
+                    ? `No documents by ${selectedMember} in this folder`
+                    : 'No documents in this folder yet'}
+                </p>
                 <p className="text-sm text-muted-foreground mt-1">
                   Upload your first document to share with your team
                 </p>
@@ -441,7 +383,7 @@ export default function DrivePage() {
                   <div>
                     <label className="block text-sm font-medium mb-2">Team Folder</label>
                     <select
-                      className="w-full px-3 py-2 border rounded"
+                      className="w-full px-4 py-3 border rounded-lg text-sm"
                       value={uploadForm.folder}
                       onChange={(e) =>
                         setUploadForm({ ...uploadForm, folder: e.target.value as DriveFolder })
@@ -470,7 +412,7 @@ export default function DrivePage() {
                   </label>
                   <input
                     type="url"
-                    className="w-full px-3 py-2 border rounded"
+                    className="w-full px-4 py-3 border rounded-lg text-sm"
                     placeholder="https://drive.google.com/... or any shared link"
                     value={uploadForm.externalLink}
                     onChange={(e) =>
@@ -485,7 +427,7 @@ export default function DrivePage() {
                 <div>
                   <label className="block text-sm font-medium mb-2">Description (Optional)</label>
                   <textarea
-                    className="w-full px-3 py-2 border rounded"
+                    className="w-full px-4 py-3 border rounded-lg text-sm"
                     rows={3}
                     placeholder="Brief description of this document..."
                     value={uploadForm.description}
@@ -495,26 +437,26 @@ export default function DrivePage() {
                   />
                 </div>
 
-                <p className="text-xs text-muted-foreground bg-muted p-3 rounded">
+                <p className="text-xs text-muted-foreground bg-muted p-3 rounded-lg">
                   Uploading as <strong>{user.name}</strong> — visible to your team members in the{' '}
                   <strong>{DRIVE_FOLDERS.find((f) => f.id === uploadForm.folder)?.label}</strong>{' '}
                   folder
                 </p>
 
-                <div className="flex gap-2 justify-end">
+                <div className="flex gap-3 justify-end">
                   <button
                     onClick={() => {
                       setShowUploadModal(false);
                       setUploadFile(null);
                     }}
-                    className="px-4 py-2 border rounded hover:bg-muted"
+                    className="px-5 py-2.5 border rounded-lg hover:bg-muted text-sm font-medium transition-all"
                     disabled={isUploading}
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleUpload}
-                    className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                    className="px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm font-medium transition-all shadow-sm hover:shadow-md"
                     disabled={isUploading || (!uploadFile && !uploadForm.externalLink.trim())}
                   >
                     {isUploading ? 'Uploading...' : 'Upload'}

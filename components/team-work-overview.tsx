@@ -8,7 +8,8 @@ import { useState } from 'react';
 import { confirmDelete } from '@/lib/confirm-delete';
 
 interface WorkItem {
-  id: string;
+  _id?: any;
+  id?: string;
   title: string;
   assignee: string;
   assigneeRole: string;
@@ -137,8 +138,8 @@ export function TeamWorkOverview({ workItems, onDeleteWork, members }: TeamWorkO
                     <td className="py-3 px-4 text-foreground">{work.dueDate}</td>
                     <td className="py-3 px-4 text-center">
                       <button
-                        onClick={() => {
-                          if (!confirmDelete('work assignment', work.title)) return;
+                        onClick={async () => {
+                          if (!(await confirmDelete('work assignment', work.title))) return;
                           onDeleteWork(work.id || work._id);
                         }}
                         className="inline-flex items-center gap-1 text-red-600 hover:text-red-800 hover:bg-red-50 px-2 py-1 rounded transition-colors"

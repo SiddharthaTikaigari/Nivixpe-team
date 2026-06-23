@@ -15,6 +15,8 @@ export default defineSchema({
       v.literal("Marketing"),
       v.literal("Design")
     )),
+    additionalTeams: v.optional(v.array(v.string())),
+    currentStatus: v.optional(v.string()),
     reportsTo: v.optional(v.string()),
     status: v.union(
       v.literal("active"),
@@ -112,6 +114,7 @@ export default defineSchema({
       v.literal("cancelled")
     ),
     minutesUrl: v.optional(v.string()),
+    minutesFile: v.optional(v.id("_storage")),
     meetLink: v.optional(v.string()),
     calendarEventId: v.optional(v.string()),
     scheduledBy: v.optional(v.string()),
@@ -137,6 +140,7 @@ export default defineSchema({
     proofLink: v.optional(v.string()),
     proofLinks: v.optional(v.array(v.string())),
     proofFile: v.optional(v.id("_storage")),
+    fileSize: v.optional(v.number()),
     status: v.union(
       v.literal("submitted"),
       v.literal("approved"),
@@ -190,6 +194,7 @@ export default defineSchema({
     uploadedByEmail: v.string(),
     fileName: v.string(),
     storageId: v.optional(v.id("_storage")),
+    fileSize: v.optional(v.number()),
     externalLink: v.optional(v.string()),
     description: v.optional(v.string()),
     uploadedAt: v.string(),

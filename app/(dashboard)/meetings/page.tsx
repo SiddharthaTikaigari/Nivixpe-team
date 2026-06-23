@@ -10,6 +10,25 @@ import { useState } from 'react';
 import { TEAM_MEMBERS } from '@/lib/mock-data';
 import { confirmDelete } from '@/lib/confirm-delete';
 import { toast } from 'sonner';
+import { Id } from '@/convex/_generated/dataModel';
+
+function MinutesFileLink({ storageId }: { storageId: Id<'_storage'> }) {
+  const url = useQuery(api.files.getFileUrl, { storageId });
+  if (!url) return null;
+  return (
+    <div className="pt-2 border-t border-green-200 mt-2">
+      <a
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-2 text-green-700 font-medium text-sm hover:text-green-800 hover:underline"
+      >
+        <FileText className="w-4 h-4" />
+        View Uploaded Minutes Document
+      </a>
+    </div>
+  );
+}
 
 export default function MeetingsPage() {
   const { user } = useAuth();
@@ -19,12 +38,15 @@ export default function MeetingsPage() {
   const createMeeting = useMutation(api.meetings.create);
   const updateMeeting = useMutation(api.meetings.update);
   const deleteMeeting = useMutation(api.meetings.remove);
+  const generateUploadUrl = useMutation(api.files.generateUploadUrl);
 
   const canManageMeetings = user?.isSuperAdmin || user?.role === 'CEO' || user?.role === 'COO';
 
   const [showScheduleForm, setShowScheduleForm] = useState(false);
   const [showMOMUpload, setShowMOMUpload] = useState<string | null>(null);
   const [isScheduling, setIsScheduling] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   const [scheduleFormData, setScheduleFormData] = useState({
     title: '',
@@ -78,21 +100,41 @@ export default function MeetingsPage() {
     e.preventDefault();
     if (!canManageMeetings) return;
 
+    setIsUploading(true);
     try {
+      let minutesFileId: any = undefined;
+      
+      if (selectedFile) {
+        const postUrl = await generateUploadUrl();
+        const result = await fetch(postUrl, {
+          method: "POST",
+          headers: { "Content-Type": selectedFile.type },
+          body: selectedFile,
+        });
+        
+        if (!result.ok) throw new Error("Failed to upload file");
+        const { storageId } = await result.json();
+        minutesFileId = storageId;
+      }
+
       await updateMeeting({
         id: meetingId,
         status: 'completed',
         minutesUrl: momFormData.minutesUrl || undefined,
+        minutesFile: minutesFileId,
         meetLink: momFormData.meetLink || undefined,
         decisions: momFormData.decisions || undefined,
       });
 
       setMOMFormData({ minutesUrl: '', meetLink: '', decisions: '' });
+      setSelectedFile(null);
       setShowMOMUpload(null);
       toast.success('Minutes of Meeting saved successfully!');
     } catch (error) {
       console.error('Error saving MOM:', error);
       toast.error('Failed to save MOM');
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -107,7 +149,7 @@ export default function MeetingsPage() {
 
   const handleDeleteMeeting = async (meetingId: any, meetingTitle: string) => {
     if (!canManageMeetings) return;
-    if (!confirmDelete('meeting', meetingTitle)) return;
+    if (!(await confirmDelete('meeting', meetingTitle))) return;
 
     try {
       await deleteMeeting({ id: meetingId });
@@ -411,7 +453,26 @@ export default function MeetingsPage() {
 
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
-                              Minutes Document Link (Optional)
+                              Upload MOM Document (Optional)
+                            </label>
+                            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:bg-gray-50 transition-colors cursor-pointer relative">
+                              <input
+                                type="file"
+                                onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                              />
+                              <Upload className="mx-auto h-8 w-8 text-gray-400 mb-2" />
+                              {selectedFile ? (
+                                <p className="text-sm font-medium text-green-600">Selected: {selectedFile.name}</p>
+                              ) : (
+                                <p className="text-sm text-gray-500">Drag & drop your file here, or click to browse</p>
+                              )}
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Or paste a Link (Optional)
                             </label>
                             <input
                               type="url"
@@ -422,9 +483,6 @@ export default function MeetingsPage() {
                               placeholder="https://drive.google.com/file/..."
                               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
                             />
-                            <p className="text-xs text-gray-500 mt-1">
-                              Paste a shareable link to the MOM document
-                            </p>
                           </div>
 
                           <div>
@@ -445,9 +503,10 @@ export default function MeetingsPage() {
                           <div className="flex items-center gap-2">
                             <button
                               type="submit"
-                              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium text-sm"
+                              disabled={isUploading}
+                              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium text-sm disabled:bg-gray-400 disabled:cursor-not-allowed"
                             >
-                              Save MOM
+                              {isUploading ? 'Saving...' : 'Save MOM'}
                             </button>
                             <button
                               type="button"
@@ -531,8 +590,12 @@ export default function MeetingsPage() {
                       </div>
                     )}
 
+                    {meeting.minutesFile && (
+                      <MinutesFileLink storageId={meeting.minutesFile} />
+                    )}
+
                     {meeting.minutesUrl && (
-                      <div className="pt-2 border-t border-green-200">
+                      <div className="pt-2 border-t border-green-200 mt-2">
                         <a
                           href={meeting.minutesUrl}
                           target="_blank"
@@ -540,7 +603,7 @@ export default function MeetingsPage() {
                           className="inline-flex items-center gap-2 text-green-700 font-medium text-sm hover:text-green-800 hover:underline"
                         >
                           <FileText className="w-4 h-4" />
-                          View Minutes of Meeting (MOM)
+                          View External Minutes Link
                         </a>
                       </div>
                     )}

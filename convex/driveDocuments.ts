@@ -114,8 +114,13 @@ export const create = mutation({
       throw new Error("Please upload a file or provide a link.");
     }
 
+    let fileSize = 0;
     if (doc.storageId) {
       await assertFileSizeLimit(ctx, doc.storageId);
+      const metadata = await ctx.storage.getMetadata(doc.storageId);
+      if (metadata) {
+        fileSize = metadata.size;
+      }
     }
 
     return await ctx.db.insert("driveDocuments", {
@@ -124,10 +129,29 @@ export const create = mutation({
       uploadedByEmail: doc.uploadedByEmail,
       fileName: doc.fileName,
       storageId: doc.storageId,
+      fileSize: fileSize || undefined,
       externalLink: doc.externalLink,
       description: doc.description,
       uploadedAt: new Date().toISOString(),
     });
+  },
+});
+
+export const backfillFileSizes = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const allDocs = await ctx.db.query("driveDocuments").collect();
+    let updatedCount = 0;
+    for (const doc of allDocs) {
+      if (doc.storageId && doc.fileSize === undefined) {
+        const metadata = await ctx.storage.getMetadata(doc.storageId);
+        if (metadata) {
+          await ctx.db.patch(doc._id, { fileSize: metadata.size });
+          updatedCount++;
+        }
+      }
+    }
+    return updatedCount;
   },
 });
 

@@ -53,11 +53,15 @@ export const create = mutation({
       (args.proofLink?.trim() ? [args.proofLink.trim()] : undefined);
     const proofLink = proofLinks?.[0] ?? args.proofLink;
 
+    let fileSize = undefined;
     if (args.proofFile) {
       const metadata = await ctx.storage.getMetadata(args.proofFile);
       if (metadata && metadata.size > Math.floor(1.5 * 1024 * 1024)) {
         await ctx.storage.delete(args.proofFile);
         throw new Error("File exceeds the 1.5 MB limit per document.");
+      }
+      if (metadata) {
+        fileSize = metadata.size;
       }
     }
 
@@ -65,6 +69,7 @@ export const create = mutation({
       ...args,
       proofLink,
       proofLinks,
+      fileSize,
     } as any);
     
     // Notify CEO/Admin about new POW submission
@@ -113,5 +118,23 @@ export const updateStatus = mutation({
         link: "/proof-of-work",
       });
     }
+  },
+});
+
+export const backfillFileSizes = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const allDocs = await ctx.db.query("proofOfWork").collect();
+    let updatedCount = 0;
+    for (const doc of allDocs) {
+      if (doc.proofFile && doc.fileSize === undefined) {
+        const metadata = await ctx.storage.getMetadata(doc.proofFile);
+        if (metadata) {
+          await ctx.db.patch(doc._id, { fileSize: metadata.size });
+          updatedCount++;
+        }
+      }
+    }
+    return updatedCount;
   },
 });

@@ -141,11 +141,11 @@ export const MOCK_USERS: Record<string, { password: string; user: User }> = {
       joinDate: '2021-07-01',
     },
   },
-  'legal@nivixpe.com': {
-    password: 'legal123',
+  'legal1@nivixpe.com': {
+    password: 'legal1123',
     user: {
       id: '10',
-      email: 'legal@nivixpe.com',
+      email: 'legal1@nivixpe.com',
       name: 'Kashish',
       role: 'Legal',
       department: 'Legal & Compliance',
@@ -181,7 +181,7 @@ export const MOCK_USERS: Record<string, { password: string; user: User }> = {
     },
   },
   'legal2@nivixpe.com': {
-    password: 'dev123',
+    password: 'legal2123',
     user: {
       id: '13',
       email: 'legal2@nivixpe.com',

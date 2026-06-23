@@ -81,6 +81,10 @@ export const update = mutation({
     status: v.optional(v.string()),
     completedDate: v.optional(v.string()),
     comments: v.optional(v.string()),
+    title: v.optional(v.string()),
+    priority: v.optional(v.string()),
+    dueDate: v.optional(v.string()),
+    description: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const { id, ...updates } = args;

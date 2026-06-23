@@ -123,6 +123,8 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
   'Legal Intern': [
     'dashboard',
     'team-directory',
+    'work-tracker',
+    'work-allocation',
     'legal',
     'meetings',
     'attendance',

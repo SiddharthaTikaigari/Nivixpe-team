@@ -39,8 +39,10 @@ export const create = mutation({
     role: v.string(),
     department: v.string(),
     team: v.optional(v.string()),
+    additionalTeams: v.optional(v.array(v.string())),
     reportsTo: v.optional(v.string()),
     status: v.string(),
+    currentStatus: v.optional(v.string()),
     lastLogin: v.optional(v.string()),
     joinDate: v.string(),
   },
@@ -55,6 +57,8 @@ export const update = mutation({
     id: v.id("teamMembers"),
     lastLogin: v.optional(v.string()),
     status: v.optional(v.string()),
+    currentStatus: v.optional(v.string()),
+    additionalTeams: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
     const { id, ...updates } = args;
