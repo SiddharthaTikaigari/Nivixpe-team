@@ -64,8 +64,7 @@ function WorkTrackerContent() {
   const [filterPerson, setFilterPerson] = useState('all');
   const [showCompletedTasks, setShowCompletedTasks] = useState(false);
   
-  const [currentStatusInput, setCurrentStatusInput] = useState('');
-  
+
   useEffect(() => {
     if (queryUser) {
       setFilterPerson(queryUser);
@@ -91,15 +90,6 @@ function WorkTrackerContent() {
   const updateTask = useMutation(api.workTasks.update);
   const deleteTask = useMutation(api.workTasks.remove);
   
-  const updateMemberStatus = useMutation(api.teamMembers.update);
-  const currentUserRecord = useQuery(api.teamMembers.getByEmail, user ? { email: user.email } : 'skip');
-  
-  useEffect(() => {
-    if (currentUserRecord?.currentStatus) {
-      setCurrentStatusInput(currentUserRecord.currentStatus);
-    }
-  }, [currentUserRecord?.currentStatus]);
-
   const allProofOfWork = useQuery(api.proofOfWork.getAll) || [];
   const myAssignedTasks =
     useQuery(api.workTasks.getByAssignee, user ? { assignee: user.name } : 'skip') || [];
@@ -158,20 +148,6 @@ function WorkTrackerContent() {
     } catch (error) {
       console.error('Error deleting task:', error);
       toast.error('Failed to delete task.');
-    }
-  };
-
-  const handleUpdateStatus = async () => {
-    if (!currentUserRecord?._id) return;
-    try {
-      await updateMemberStatus({
-        id: currentUserRecord._id,
-        currentStatus: currentStatusInput
-      });
-      toast.success('Status updated successfully!');
-    } catch (error) {
-      console.error(error);
-      toast.error('Failed to update status.');
     }
   };
 
@@ -402,35 +378,149 @@ function WorkTrackerContent() {
       />
 
       <div className="p-6 space-y-6">
-        {/* Current Status Input */}
-        <Card className="border-border bg-gradient-to-r from-blue-50 to-indigo-50">
-          <CardContent className="pt-6">
-            <div className="flex flex-col md:flex-row items-center gap-4">
-              <div className="flex-1 w-full">
-                <label className="block text-sm font-semibold text-blue-900 mb-2 flex items-center gap-2">
-                  <User className="h-4 w-4" />
-                  What are you currently working on?
-                </label>
-                <div className="flex gap-2">
+        {/* Inline Allocate Work Form */}
+        {canAssignTasks(user) && (
+          <Card className="border-blue-200 bg-gradient-to-br from-blue-50/50 to-indigo-50/50 shadow-sm">
+            <CardHeader className="pb-3 border-b border-blue-100/50 bg-white/50">
+              <CardTitle className="flex items-center gap-2 text-blue-900 text-lg">
+                <Plus className="h-5 w-5 text-blue-600" />
+                Allocate New Task
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-5 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Assign To</label>
+                  <select
+                    className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm bg-white shadow-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none"
+                    value={selectedAssignee}
+                    onChange={(e) => setSelectedAssignee(e.target.value)}
+                  >
+                    <option value="" disabled>Select a team member...</option>
+                    {getAssignableMembers(user, TEAM_MEMBERS).map((m) => (
+                      <option key={m.id} value={m.name}>
+                        {m.name} ({m.role})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Task Title</label>
                   <input
                     type="text"
-                    value={currentStatusInput}
-                    onChange={(e) => setCurrentStatusInput(e.target.value)}
-                    placeholder="E.g. Reviewing DPDP Act compliance documents..."
-                    className="flex-1 px-4 py-2.5 border border-blue-200 rounded-lg text-sm bg-white/80 focus:bg-white transition-all shadow-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                    className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm bg-white shadow-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none"
+                    placeholder="E.g. Prepare Q3 Marketing Report"
+                    value={taskForm.title}
+                    onChange={(e) => setTaskForm({ ...taskForm, title: e.target.value })}
                   />
-                  <button 
-                    onClick={handleUpdateStatus}
-                    className="btn-primary"
-                  >
-                    Update Status
-                  </button>
                 </div>
-                <p className="text-xs text-blue-700 mt-2 font-medium">This status is visible to your team members and management on your profile.</p>
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-sm font-semibold text-gray-700">Due Date</label>
+                    <label className="flex items-center gap-1.5 text-xs font-medium text-gray-600 cursor-pointer hover:text-blue-600 transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={taskForm.dueDate === 'Ongoing'}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setTaskForm({ ...taskForm, dueDate: 'Ongoing' });
+                          } else {
+                            setTaskForm({ ...taskForm, dueDate: new Date().toISOString().split('T')[0] });
+                          }
+                        }}
+                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      Mark as Ongoing
+                    </label>
+                  </div>
+                  <input
+                    type="date"
+                    className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm bg-white shadow-sm disabled:bg-gray-50 disabled:text-gray-400 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none"
+                    value={taskForm.dueDate === 'Ongoing' ? '' : taskForm.dueDate}
+                    disabled={taskForm.dueDate === 'Ongoing'}
+                    onChange={(e) => setTaskForm({ ...taskForm, dueDate: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Priority</label>
+                  <select 
+                    className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm bg-white shadow-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none"
+                    value={taskForm.priority}
+                    onChange={(e) => setTaskForm({ ...taskForm, priority: e.target.value as 'high' | 'medium' | 'low' })}
+                  >
+                    <option value="high">🔴 High Priority</option>
+                    <option value="medium">🟡 Medium Priority</option>
+                    <option value="low">🟢 Low Priority</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Coordination With (Optional)</label>
+                  <select
+                    className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm bg-white shadow-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none"
+                    value={taskForm.coordinationWith}
+                    onChange={(e) => setTaskForm({ ...taskForm, coordinationWith: e.target.value })}
+                  >
+                    <option value="">None needed</option>
+                    {TEAM_MEMBERS.filter(m => m.name !== selectedAssignee).map(member => (
+                      <option key={member.id} value={member.name}>
+                        {member.name} ({member.role})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Comments / Description</label>
+                  <textarea
+                    className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm bg-white shadow-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none resize-none"
+                    rows={2}
+                    placeholder="Add task details, links, or specific instructions..."
+                    value={taskForm.comments}
+                    onChange={(e) => setTaskForm({ ...taskForm, comments: e.target.value })}
+                  />
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+              
+              <div className="flex justify-end pt-2">
+                <button
+                  onClick={async () => {
+                    if (!taskForm.title.trim() || !selectedAssignee || !taskForm.dueDate) {
+                      toast.error('Please fill in all required fields (Assignee, Title, and Due Date)');
+                      return;
+                    }
+                    const assigneeMember = TEAM_MEMBERS.find(m => m.name === selectedAssignee);
+                    if (!assigneeMember) return toast.error('Invalid assignee');
+
+                    try {
+                      await createTask({
+                        title: taskForm.title.trim(),
+                        assignee: selectedAssignee,
+                        assigneeRole: assigneeMember.role,
+                        status: 'ongoing',
+                        dueDate: taskForm.dueDate,
+                        priority: taskForm.priority,
+                        comments: taskForm.comments.trim(),
+                        coordinationWith: taskForm.coordinationWith || undefined,
+                        createdBy: user?.name || 'Unknown',
+                        owner: user?.name,
+                      });
+                      
+                      setTaskForm({ title: '', dueDate: '', priority: 'medium', comments: '', coordinationWith: '' });
+                      setSelectedAssignee('');
+                      toast.success('Task allocated successfully!');
+                    } catch (error) {
+                      toast.error('Failed to allocate task.');
+                    }
+                  }}
+                  className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold transition-all shadow-sm disabled:bg-blue-300 disabled:cursor-not-allowed flex items-center gap-2"
+                  disabled={!taskForm.title || !taskForm.dueDate || !selectedAssignee}
+                >
+                  <CheckCircle className="h-4 w-4" />
+                  Allocate Task
+                </button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* CEO/CTO Overview */}
         {(user?.isSuperAdmin || user?.role === 'CTO') && (
@@ -484,7 +574,7 @@ function WorkTrackerContent() {
           </Card>
         )}
 
-        {/* Filter Bar with extra toggle and Allocate Work button */}
+        {/* Filter Bar with extra toggle */}
         <div className="flex flex-wrap gap-4 items-center justify-between">
           <PageFilterBar
             onTeamChange={setFilterTeam}
@@ -501,19 +591,6 @@ function WorkTrackerContent() {
               </div>
             }
           />
-          {canAssignTasks(user) && (
-            <button
-              onClick={() => {
-                setSelectedAssignee('');
-                setTaskForm({ title: '', dueDate: '', priority: 'medium', comments: '', coordinationWith: '' });
-                setShowAddTaskModal(true);
-              }}
-              className="btn-primary flex items-center gap-1.5 h-11"
-            >
-              <Plus className="h-4 w-4" />
-              Allocate Work
-            </button>
-          )}
         </div>
 
         {/* Individual Trackers */}
@@ -534,26 +611,10 @@ function WorkTrackerContent() {
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <Card className="w-full max-w-2xl mx-4 shadow-2xl animate-in zoom-in-95 duration-200">
               <CardHeader>
-                <CardTitle>{showEditTaskModal ? 'Edit Task' : selectedAssignee ? `Add New Task to ${selectedAssignee}` : 'Allocate Work'}</CardTitle>
+                <CardTitle>{showEditTaskModal ? 'Edit Task' : `Add New Task to ${selectedAssignee}`}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {!selectedAssignee && !showEditTaskModal && (
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Assign To</label>
-                    <select
-                      className="w-full px-4 py-3 border rounded-lg bg-white text-sm"
-                      value={selectedAssignee}
-                      onChange={(e) => setSelectedAssignee(e.target.value)}
-                    >
-                      <option value="" disabled>Select a team member</option>
-                      {getAssignableMembers(user, TEAM_MEMBERS).map((m) => (
-                        <option key={m.id} value={m.name}>
-                          {m.name} ({m.role})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
+
                 <div>
                   <label className="block text-sm font-medium mb-2">Task Title</label>
                   <input
@@ -643,8 +704,8 @@ function WorkTrackerContent() {
                   </button>
                   <button
                     onClick={async () => {
-                      if (!taskForm.title.trim() || (!selectedAssignee && !showEditTaskModal)) {
-                        toast.error('Please fill in all required fields, including the assignee');
+                      if (!taskForm.title.trim()) {
+                        toast.error('Please enter a task title');
                         return;
                       }
 
@@ -685,7 +746,7 @@ function WorkTrackerContent() {
                       }
                     }}
                     className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors shadow-sm disabled:bg-gray-400 disabled:cursor-not-allowed"
-                    disabled={!taskForm.title || !taskForm.dueDate || (!selectedAssignee && !showEditTaskModal)}
+                    disabled={!taskForm.title || !taskForm.dueDate}
                   >
                     {showEditTaskModal ? 'Save Changes' : 'Create Task'}
                   </button>
