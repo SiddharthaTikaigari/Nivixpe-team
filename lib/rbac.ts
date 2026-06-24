@@ -207,8 +207,8 @@ export function canEditTeamData(user: User | null): boolean {
 
 export function canAssignTasks(user: User | null): boolean {
   if (!user) return false;
-  // CEO, CTO, and all managers can assign tasks
-  return user.isSuperAdmin || user.role === 'CTO' || user.accessLevel === 'manager';
+  // CEO, CTO, and all managers/admins can assign tasks
+  return user.isSuperAdmin || user.role === 'CTO' || user.accessLevel === 'manager' || user.accessLevel === 'admin';
 }
 
 export function canAssignTasksTo(user: User | null, targetMember: any): boolean {
