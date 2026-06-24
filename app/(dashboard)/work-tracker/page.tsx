@@ -151,8 +151,9 @@ function WorkTrackerContent() {
     }
   };
 
-  const hasSubmittedPoW = (task: any) => {
-    return allProofOfWork.some(pow => 
+  const getTaskPoW = (task: any) => {
+    // Return the most recent PoW for this task
+    return allProofOfWork.find(pow => 
       (pow.taskId === task._id) || 
       (pow.taskTitle === task.title && pow.submittedBy === task.assignee)
     );
@@ -307,24 +308,33 @@ function WorkTrackerContent() {
                         <td className="p-3 text-right">
                           <div className="flex items-center justify-end gap-2 flex-wrap">
                             {task.status !== 'completed' && task.assignee === user?.name && (
-                              <button
-                                onClick={() => {
-                                  if (!hasSubmittedPoW(task)) {
-                                    setProofTask({ id: task._id, title: task.title });
-                                  } else {
-                                    handleMarkAsDone(task._id);
-                                  }
-                                }}
-                                className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2.5 px-5 rounded-full transition-all shadow-md hover:shadow-lg text-sm border-none outline-none"
-                                title={
-                                  !hasSubmittedPoW(task)
-                                    ? 'Submit proof of work to complete this task'
-                                    : 'Mark task as completed'
+                              (() => {
+                                const pow = getTaskPoW(task);
+                                if (pow?.status === 'submitted') {
+                                  return (
+                                    <button
+                                      disabled
+                                      className="inline-flex items-center gap-2 bg-yellow-100 text-yellow-800 font-medium py-2.5 px-5 rounded-full shadow-sm text-sm border border-yellow-300 opacity-80 cursor-not-allowed"
+                                      title="Proof of Work submitted. Waiting for approval."
+                                    >
+                                      ⏳ Pending Approval
+                                    </button>
+                                  );
                                 }
-                              >
-                                <CheckCircle className="h-5 w-5" />
-                                Mark as Done
-                              </button>
+                                
+                                return (
+                                  <button
+                                    onClick={() => {
+                                      setProofTask({ id: task._id, title: task.title });
+                                    }}
+                                    className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2.5 px-5 rounded-full transition-all shadow-md hover:shadow-lg text-sm border-none outline-none"
+                                    title={pow?.status === 'rejected' ? 'Submit proof of work again' : 'Submit proof of work to complete this task'}
+                                  >
+                                    <CheckCircle className="h-5 w-5" />
+                                    {pow?.status === 'rejected' ? 'Submit PoW Again' : 'Mark as Done'}
+                                  </button>
+                                );
+                              })()
                             )}
                             {canDeleteAllocatedTask(user, task) && (
                               <>

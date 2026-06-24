@@ -211,6 +211,12 @@ export function canAssignTasks(user: User | null): boolean {
   return user.isSuperAdmin || user.role === 'CTO' || user.accessLevel === 'manager' || user.accessLevel === 'admin';
 }
 
+export function canApprovePoW(user: User | null): boolean {
+  if (!user) return false;
+  // Only CEO (SuperAdmin), CTO, or COO can approve Proof of Work
+  return user.isSuperAdmin || user.role === 'CTO' || user.role === 'COO';
+}
+
 export function canAssignTasksTo(user: User | null, targetMember: any): boolean {
   if (!user) return false;
   

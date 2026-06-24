@@ -3,7 +3,7 @@
 import { Header } from '@/components/header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/app/providers';
-import { useQuery } from 'convex/react';
+import { useQuery, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { Id } from '@/convex/_generated/dataModel';
 import {
@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { TEAM_MEMBERS } from '@/lib/mock-data';
-import { canViewTeamTasks, canAssignTasks } from '@/lib/rbac';
+import { canViewTeamTasks, canAssignTasks, canApprovePoW } from '@/lib/rbac';
 import { ProofSubmissionForm } from '@/components/proof-submission-form';
 import { User } from 'lucide-react';
 
@@ -80,6 +80,7 @@ export default function ProofOfWorkPage() {
   const [filterStatus, setFilterStatus] = useState('all');
 
   const allProofOfWork = useQuery(api.proofOfWork.getAll) || [];
+  const updateStatus = useMutation(api.proofOfWork.updateStatus);
   const myTasks =
     useQuery(api.workTasks.getByAssignee, user ? { assignee: user.name } : 'skip') || [];
 
@@ -111,6 +112,19 @@ export default function ProofOfWorkPage() {
   }, [allProofOfWork, user]);
 
   const taskOptions = myTasks.map((t) => ({ _id: t._id, title: t.title }));
+
+  const handleStatusUpdate = async (powId: Id<"proofOfWork">, newStatus: string) => {
+    try {
+      await updateStatus({
+        id: powId,
+        status: newStatus,
+        reviewedBy: user?.name,
+      });
+    } catch (error) {
+      console.error('Failed to update status:', error);
+      alert('Failed to update proof of work status');
+    }
+  };
 
   return (
     <div className="flex-1 overflow-y-auto">
@@ -304,6 +318,23 @@ export default function ProofOfWorkPage() {
                           <p className="text-xs text-muted-foreground">
                             Comments: {pow.reviewComments}
                           </p>
+                        )}
+
+                        {pow.status === 'submitted' && canApprovePoW(user) && (
+                          <div className="mt-4 flex gap-3">
+                            <button
+                              onClick={() => handleStatusUpdate(pow._id, 'approved')}
+                              className="px-4 py-1.5 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-md transition-colors"
+                            >
+                              Approve & Complete Task
+                            </button>
+                            <button
+                              onClick={() => handleStatusUpdate(pow._id, 'rejected')}
+                              className="px-4 py-1.5 border border-red-200 text-red-600 hover:bg-red-50 text-sm font-medium rounded-md transition-colors"
+                            >
+                              Reject
+                            </button>
+                          </div>
                         )}
                       </div>
                     </div>

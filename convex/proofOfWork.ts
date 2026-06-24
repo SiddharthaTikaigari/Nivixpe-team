@@ -108,6 +108,7 @@ export const updateStatus = mutation({
     await ctx.db.patch(id, updates as any);
 
     if (pow) {
+      // Notify the user of the status change
       await ctx.db.insert("notifications", {
         userId: pow.submittedByEmail,
         title: `Proof of Work ${updates.status.charAt(0).toUpperCase() + updates.status.slice(1)}`,
@@ -117,6 +118,17 @@ export const updateStatus = mutation({
         createdAt: new Date().toISOString(),
         link: "/proof-of-work",
       });
+
+      // If approved, complete the task
+      if (updates.status === "approved" && pow.taskId) {
+        const task = await ctx.db.get(pow.taskId);
+        if (task && task.status !== "completed") {
+          await ctx.db.patch(pow.taskId, {
+            status: "completed",
+            completedDate: new Date().toISOString().split("T")[0],
+          });
+        }
+      }
     }
   },
 });
