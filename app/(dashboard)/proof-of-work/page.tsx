@@ -113,12 +113,14 @@ export default function ProofOfWorkPage() {
 
   const taskOptions = myTasks.map((t) => ({ _id: t._id, title: t.title }));
 
-  const handleStatusUpdate = async (powId: Id<"proofOfWork">, newStatus: string) => {
+  const handleStatusUpdate = async (powId: Id<"proofOfWork">, newStatus: string, reason?: string) => {
     try {
       await updateStatus({
         id: powId,
         status: newStatus,
         reviewedBy: user?.name,
+        reviewerRole: user?.role,
+        reviewComments: reason,
       });
     } catch (error) {
       console.error('Failed to update status:', error);
@@ -309,15 +311,45 @@ export default function ProofOfWorkPage() {
                           </div>
                         </div>
 
-                        {pow.reviewedBy && (
-                          <p className="text-xs text-muted-foreground">
-                            Reviewed by: {pow.reviewedBy}
-                          </p>
-                        )}
-                        {pow.reviewComments && (
-                          <p className="text-xs text-muted-foreground">
-                            Comments: {pow.reviewComments}
-                          </p>
+                        {pow.revisionHistory && pow.revisionHistory.length > 0 ? (
+                          <div className="mt-6 border-l-2 border-slate-200 ml-2 pl-4 space-y-4">
+                            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Audit Timeline</h4>
+                            {pow.revisionHistory.map((history: any, index: number) => (
+                              <div key={index} className="relative">
+                                <div className="absolute -left-[21px] top-1.5 h-2 w-2 rounded-full bg-slate-400 border border-white" />
+                                <div className="flex flex-col">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className={`text-sm font-medium capitalize ${
+                                      history.action === 'approved' ? 'text-green-600' :
+                                      history.action === 'rejected' ? 'text-red-600' :
+                                      history.action === 'revision_requested' ? 'text-yellow-600' : 'text-slate-700'
+                                    }`}>
+                                      {history.action.replace('_', ' ')}
+                                    </span>
+                                    <span className="text-xs text-muted-foreground">by {history.actor}</span>
+                                    {history.role && <span className="text-[10px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-500">{history.role}</span>}
+                                    <span className="text-xs text-muted-foreground ml-auto">{new Date(history.timestamp).toLocaleString()}</span>
+                                  </div>
+                                  {history.comments && (
+                                    <p className="text-sm text-slate-600 mt-1 bg-slate-50 p-2 rounded border border-slate-100">"{history.comments}"</p>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <>
+                            {pow.reviewedBy && (
+                              <p className="text-xs text-muted-foreground mt-4">
+                                Reviewed by: {pow.reviewedBy}
+                              </p>
+                            )}
+                            {pow.reviewComments && (
+                              <p className="text-xs text-muted-foreground">
+                                Comments: {pow.reviewComments}
+                              </p>
+                            )}
+                          </>
                         )}
 
                         {pow.status === 'submitted' && canApprovePoW(user) && (
@@ -329,7 +361,23 @@ export default function ProofOfWorkPage() {
                               Approve & Complete Task
                             </button>
                             <button
-                              onClick={() => handleStatusUpdate(pow._id, 'rejected')}
+                              onClick={() => {
+                                const reason = prompt('Please provide a reason for requesting a revision:');
+                                if (reason) {
+                                  handleStatusUpdate(pow._id, 'revision_requested', reason);
+                                }
+                              }}
+                              className="px-4 py-1.5 border border-yellow-300 text-yellow-700 hover:bg-yellow-50 text-sm font-medium rounded-md transition-colors"
+                            >
+                              Request Revision
+                            </button>
+                            <button
+                              onClick={() => {
+                                const reason = prompt('Please provide a reason for rejection:');
+                                if (reason) {
+                                  handleStatusUpdate(pow._id, 'rejected', reason);
+                                }
+                              }}
                               className="px-4 py-1.5 border border-red-200 text-red-600 hover:bg-red-50 text-sm font-medium rounded-md transition-colors"
                             >
                               Reject

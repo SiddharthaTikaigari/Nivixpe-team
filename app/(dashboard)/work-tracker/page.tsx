@@ -323,16 +323,22 @@ function WorkTrackerContent() {
                                 }
                                 
                                 return (
-                                  <button
-                                    onClick={() => {
-                                      setProofTask({ id: task._id, title: task.title });
-                                    }}
-                                    className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2.5 px-5 rounded-full transition-all shadow-md hover:shadow-lg text-sm border-none outline-none"
-                                    title={pow?.status === 'rejected' ? 'Submit proof of work again' : 'Submit proof of work to complete this task'}
-                                  >
-                                    <CheckCircle className="h-5 w-5" />
-                                    {pow?.status === 'rejected' ? 'Submit PoW Again' : 'Mark as Done'}
-                                  </button>
+                                    <button
+                                      onClick={() => {
+                                        setProofTask({ id: task._id, title: task.title });
+                                      }}
+                                      className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2.5 px-5 rounded-full transition-all shadow-md hover:shadow-lg text-sm border-none outline-none"
+                                      title={
+                                        pow?.status === 'rejected' ? 'Submit proof of work again' :
+                                        pow?.status === 'revision_requested' ? 'Revise proof of work submission' :
+                                        'Submit proof of work to complete this task'
+                                      }
+                                    >
+                                      <CheckCircle className="h-5 w-5" />
+                                      {pow?.status === 'rejected' ? 'Submit PoW Again' :
+                                       pow?.status === 'revision_requested' ? 'Revise PoW' :
+                                       'Mark as Done'}
+                                    </button>
                                 );
                               })()
                             )}

@@ -144,10 +144,24 @@ export default defineSchema({
     status: v.union(
       v.literal("submitted"),
       v.literal("approved"),
-      v.literal("rejected")
+      v.literal("rejected"),
+      v.literal("revision_requested")
     ),
     reviewedBy: v.optional(v.string()),
     reviewComments: v.optional(v.string()),
+    revisionHistory: v.optional(v.array(v.object({
+      action: v.union(
+        v.literal("submitted"),
+        v.literal("approved"),
+        v.literal("rejected"),
+        v.literal("revision_requested"),
+        v.literal("resubmitted")
+      ),
+      actor: v.string(),
+      role: v.optional(v.string()),
+      timestamp: v.string(),
+      comments: v.optional(v.string()),
+    }))),
   })
     .index("by_submitted_by", ["submittedBy"])
     .index("by_status", ["status"])

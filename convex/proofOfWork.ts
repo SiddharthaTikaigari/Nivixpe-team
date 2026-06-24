@@ -70,8 +70,12 @@ export const create = mutation({
       proofLink,
       proofLinks,
       fileSize,
+      revisionHistory: [{
+        action: "submitted",
+        actor: args.submittedBy,
+        timestamp: new Date().toISOString(),
+      }]
     } as any);
-    
     // Notify CEO/Admin about new POW submission
     const ceo = await ctx.db
       .query("teamMembers")
@@ -100,14 +104,26 @@ export const updateStatus = mutation({
     id: v.id("proofOfWork"),
     status: v.string(),
     reviewedBy: v.optional(v.string()),
+    reviewerRole: v.optional(v.string()),
     reviewComments: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const { id, ...updates } = args;
+    const { id, reviewerRole, ...updates } = args;
     const pow = await ctx.db.get(id);
-    await ctx.db.patch(id, updates as any);
+    if (!pow) return;
 
-    if (pow) {
+    let revisionHistory = pow.revisionHistory || [];
+    if (args.reviewedBy) {
+      revisionHistory = [...revisionHistory, {
+        action: updates.status as any,
+        actor: args.reviewedBy,
+        role: reviewerRole,
+        timestamp: new Date().toISOString(),
+        comments: updates.reviewComments,
+      }];
+    }
+
+    await ctx.db.patch(id, { ...updates, revisionHistory } as any);
       // Notify the user of the status change
       await ctx.db.insert("notifications", {
         userId: pow.submittedByEmail,
@@ -129,7 +145,6 @@ export const updateStatus = mutation({
           });
         }
       }
-    }
   },
 });
 

@@ -4,6 +4,8 @@ import { useAuth } from '@/app/providers';
 import { Button } from '@/components/ui/button';
 import { Bell, Settings, LogOut } from 'lucide-react';
 
+import { NotificationCenter } from '@/components/notification-center';
+
 interface HeaderProps {
   title: string;
   subtitle?: string;
@@ -25,9 +27,9 @@ export function Header({ title, subtitle }: HeaderProps) {
           {subtitle && <p className="text-responsive-xs text-muted-foreground mt-1 line-clamp-2">{subtitle}</p>}
         </div>
         <div className="flex items-center gap-2 sm:gap-4 ml-4">
-          <Button variant="ghost" size="icon" className="tap-target hidden sm:flex">
-            <Bell className="w-4 h-4" />
-          </Button>
+          <div className="hidden sm:flex items-center">
+            <NotificationCenter />
+          </div>
           <Button variant="ghost" size="icon" className="tap-target hidden sm:flex">
             <Settings className="w-4 h-4" />
           </Button>

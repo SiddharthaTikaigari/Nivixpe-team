@@ -6,7 +6,7 @@ import { useQuery, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { useAuth } from '@/app/providers';
 import { useState, useEffect } from 'react';
-import { CheckCircle, Clock, AlertCircle, Calendar, Timer } from 'lucide-react';
+import { CheckCircle, Clock, AlertCircle, Calendar, Timer, Search, Download, Filter } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { isNightShiftWorker, getAttendanceShiftNote, NIGHT_SHIFT_START } from '@/lib/attendance-shift';
 import { toast } from 'sonner';
@@ -14,6 +14,8 @@ import { toast } from 'sonner';
 export default function AttendancePage() {
   const { user } = useAuth();
   const [currentTime, setCurrentTime] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
   
   // Get today's date in YYYY-MM-DD format
   const today = new Date().toISOString().split('T')[0];
@@ -160,6 +162,58 @@ export default function AttendancePage() {
       console.error('Error marking logout:', error);
       toast.error('Failed to mark logout. Please try again.');
     }
+  };
+
+  const filteredAttendance = todayAttendance.filter(record => {
+    const matchesSearch = record.email.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = statusFilter === 'all' || record.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
+  const exportToCSV = () => {
+    const headers = ['Email', 'Status', 'Login Time', 'Logout Time', 'Work Hours'];
+    const csvContent = [
+      headers.join(','),
+      ...filteredAttendance.map(record => {
+        let workMins = record.workHours || 0;
+        const activeStart = record.currentSessionStart;
+        const isPaused = record.isPaused;
+        const isActiveSegment = activeStart && !isPaused;
+        
+        if (isActiveSegment) {
+          const [startH, startM] = activeStart.split(':').map(Number);
+          const now = new Date();
+          const currentH = now.getHours();
+          const currentM = now.getMinutes();
+          let startMin = startH * 60 + startM;
+          let currentMin = currentH * 60 + currentM;
+          if (currentMin < startMin) currentMin += 24 * 60;
+          workMins += Math.max(0, currentMin - startMin);
+        }
+        
+        const hours = Math.floor(workMins / 60);
+        const mins = workMins % 60;
+        const workTimeStr = `${hours}h ${mins}m`;
+
+        return [
+          record.email,
+          record.status,
+          record.loginTime || '',
+          record.logoutTime || '',
+          workTimeStr
+        ].join(',');
+      })
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `attendance-${today}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   return (
@@ -366,8 +420,40 @@ export default function AttendancePage() {
 
         {/* Attendance Table */}
         <Card className="border-border">
-          <CardHeader>
+          <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <CardTitle>Today&apos;s Attendance - {today}</CardTitle>
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-500" />
+                <input
+                  type="text"
+                  placeholder="Search by email..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-9 pr-4 py-2 text-sm border rounded-md outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div className="relative">
+                <Filter className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-500" />
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="pl-9 pr-8 py-2 text-sm border rounded-md outline-none focus:ring-2 focus:ring-blue-500 appearance-none bg-white"
+                >
+                  <option value="all">All Status</option>
+                  <option value="present">Present</option>
+                  <option value="onLeave">On Leave</option>
+                  <option value="absent">Absent</option>
+                </select>
+              </div>
+              <button
+                onClick={exportToCSV}
+                className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-md text-sm font-medium hover:bg-slate-800 transition-colors"
+              >
+                <Download className="h-4 w-4" />
+                Export CSV
+              </button>
+            </div>
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
@@ -382,8 +468,8 @@ export default function AttendancePage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {todayAttendance.length > 0 ? (
-                    todayAttendance.map((record) => {
+                  {filteredAttendance.length > 0 ? (
+                    filteredAttendance.map((record) => {
                       // Calculate live work hours if they are currently active (for table view)
                       let workMins = record.workHours || 0;
                       const activeStart = record.currentSessionStart;
