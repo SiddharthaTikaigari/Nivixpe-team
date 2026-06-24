@@ -70,7 +70,13 @@ function WorkTrackerContent() {
     if (queryUser) {
       setFilterPerson(queryUser);
     }
-  }, [queryUser]);
+    if (searchParams.get('action') === 'allocate') {
+      setSelectedAssignee('');
+      setTaskForm({ title: '', dueDate: '', priority: 'medium', comments: '', coordinationWith: '' });
+      setShowAddTaskModal(true);
+      window.history.replaceState({}, '', '/work-tracker');
+    }
+  }, [queryUser, searchParams]);
 
   const [taskForm, setTaskForm] = useState({
     title: '',
@@ -478,22 +484,37 @@ function WorkTrackerContent() {
           </Card>
         )}
 
-        {/* Filter Bar with extra toggle */}
-        <PageFilterBar
-          onTeamChange={setFilterTeam}
-          onPersonChange={setFilterPerson}
-          selectedTeam={filterTeam}
-          selectedPerson={filterPerson}
-          visibleMembers={TEAM_MEMBERS.filter(m => allAssignees.includes(m.name))}
-          extraFilters={
-            <div className="flex items-center gap-2 bg-white px-4 py-2 border rounded-xl shadow-sm cursor-pointer ml-auto" onClick={() => setShowCompletedTasks(!showCompletedTasks)}>
-              <div className={`w-10 h-6 rounded-full transition-colors flex items-center ${showCompletedTasks ? 'bg-blue-600' : 'bg-slate-300'}`}>
-                <div className={`w-4 h-4 bg-white rounded-full transition-transform transform ${showCompletedTasks ? 'translate-x-5' : 'translate-x-1'}`} />
+        {/* Filter Bar with extra toggle and Allocate Work button */}
+        <div className="flex flex-wrap gap-4 items-center justify-between">
+          <PageFilterBar
+            onTeamChange={setFilterTeam}
+            onPersonChange={setFilterPerson}
+            selectedTeam={filterTeam}
+            selectedPerson={filterPerson}
+            visibleMembers={TEAM_MEMBERS.filter(m => allAssignees.includes(m.name))}
+            extraFilters={
+              <div className="flex items-center gap-2 bg-white px-4 py-2 border rounded-xl shadow-sm cursor-pointer ml-auto" onClick={() => setShowCompletedTasks(!showCompletedTasks)}>
+                <div className={`w-10 h-6 rounded-full transition-colors flex items-center ${showCompletedTasks ? 'bg-blue-600' : 'bg-slate-300'}`}>
+                  <div className={`w-4 h-4 bg-white rounded-full transition-transform transform ${showCompletedTasks ? 'translate-x-5' : 'translate-x-1'}`} />
+                </div>
+                <span className="text-sm font-medium text-slate-700 select-none">Show Completed Tasks</span>
               </div>
-              <span className="text-sm font-medium text-slate-700 select-none">Show Completed Tasks</span>
-            </div>
-          }
-        />
+            }
+          />
+          {canAssignTasks(user) && (
+            <button
+              onClick={() => {
+                setSelectedAssignee('');
+                setTaskForm({ title: '', dueDate: '', priority: 'medium', comments: '', coordinationWith: '' });
+                setShowAddTaskModal(true);
+              }}
+              className="btn-primary flex items-center gap-1.5 h-11"
+            >
+              <Plus className="h-4 w-4" />
+              Allocate Work
+            </button>
+          )}
+        </div>
 
         {/* Individual Trackers */}
         <div className="space-y-6">
@@ -513,9 +534,26 @@ function WorkTrackerContent() {
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <Card className="w-full max-w-2xl mx-4 shadow-2xl animate-in zoom-in-95 duration-200">
               <CardHeader>
-                <CardTitle>{showEditTaskModal ? 'Edit Task' : `Add New Task to ${selectedAssignee}`}</CardTitle>
+                <CardTitle>{showEditTaskModal ? 'Edit Task' : selectedAssignee ? `Add New Task to ${selectedAssignee}` : 'Allocate Work'}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
+                {!selectedAssignee && !showEditTaskModal && (
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Assign To</label>
+                    <select
+                      className="w-full px-4 py-3 border rounded-lg bg-white text-sm"
+                      value={selectedAssignee}
+                      onChange={(e) => setSelectedAssignee(e.target.value)}
+                    >
+                      <option value="" disabled>Select a team member</option>
+                      {getAssignableMembers(user, TEAM_MEMBERS).map((m) => (
+                        <option key={m.id} value={m.name}>
+                          {m.name} ({m.role})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
                 <div>
                   <label className="block text-sm font-medium mb-2">Task Title</label>
                   <input
@@ -605,39 +643,35 @@ function WorkTrackerContent() {
                   </button>
                   <button
                     onClick={async () => {
-                      if (!taskForm.title || !taskForm.dueDate) {
-                        toast.warning('Please fill in task title and due date');
+                      if (!taskForm.title.trim() || (!selectedAssignee && !showEditTaskModal)) {
+                        toast.error('Please fill in all required fields, including the assignee');
                         return;
                       }
 
-                      if (showEditTaskModal && editingTask) {
-                        try {
+                      try {
+                        if (showEditTaskModal && editingTask) {
                           await updateTask({
                             id: editingTask._id,
-                            title: taskForm.title,
+                            title: taskForm.title.trim(),
                             dueDate: taskForm.dueDate,
                             priority: taskForm.priority,
-                            comments: taskForm.comments,
+                            comments: taskForm.comments.trim(),
                           });
                           setShowEditTaskModal(false);
                           setEditingTask(null);
                           toast.success('Task updated successfully!');
-                        } catch (error) {
-                          toast.error('Failed to update task.');
-                        }
-                      } else {
-                        const assigneeMember = TEAM_MEMBERS.find(m => m.name === selectedAssignee);
-                        if (!assigneeMember) return toast.error('Invalid assignee');
+                        } else {
+                          const assigneeMember = TEAM_MEMBERS.find(m => m.name === selectedAssignee);
+                          if (!assigneeMember) return toast.error('Invalid assignee');
 
-                        try {
                           await createTask({
-                            title: taskForm.title,
+                            title: taskForm.title.trim(),
                             assignee: selectedAssignee,
                             assigneeRole: assigneeMember.role,
                             status: 'ongoing',
                             dueDate: taskForm.dueDate,
                             priority: taskForm.priority,
-                            comments: taskForm.comments,
+                            comments: taskForm.comments.trim(),
                             coordinationWith: taskForm.coordinationWith || undefined,
                             createdBy: user?.name || 'Unknown',
                             owner: user?.name,
@@ -645,13 +679,13 @@ function WorkTrackerContent() {
                           
                           setShowAddTaskModal(false);
                           toast.success('Task created successfully!');
-                        } catch (error) {
-                          toast.error('Failed to create task.');
                         }
+                      } catch (error) {
+                        toast.error(showEditTaskModal ? 'Failed to update task.' : 'Failed to create task.');
                       }
                     }}
                     className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors shadow-sm disabled:bg-gray-400 disabled:cursor-not-allowed"
-                    disabled={!taskForm.title || !taskForm.dueDate}
+                    disabled={!taskForm.title || !taskForm.dueDate || (!selectedAssignee && !showEditTaskModal)}
                   >
                     {showEditTaskModal ? 'Save Changes' : 'Create Task'}
                   </button>

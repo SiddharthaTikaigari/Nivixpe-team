@@ -8,8 +8,9 @@ import { PageFilterBar } from '@/components/page-filter-bar'
 import { useQuery } from 'convex/react'
 import { api } from '@/convex/_generated/api'
 import { TEAM_MEMBERS } from '@/lib/mock-data'
-import { Shield } from 'lucide-react'
+import { Shield, Plus } from 'lucide-react'
 import { useState, useMemo } from 'react'
+import { canAssignTasks } from '@/lib/rbac'
 
 export default function WorkAllocationPage() {
   const { user } = useAuth()
@@ -179,14 +180,25 @@ export default function WorkAllocationPage() {
           </Card>
         )}
 
-        {/* Filter Bar */}
-        <PageFilterBar
-          onTeamChange={setFilterTeam}
-          onPersonChange={setFilterPerson}
-          selectedTeam={filterTeam}
-          selectedPerson={filterPerson}
-          visibleMembers={visibleMembers}
-        />
+        {/* Filter Bar and Allocate Work */}
+        <div className="flex flex-wrap gap-4 items-center justify-between">
+          <PageFilterBar
+            onTeamChange={setFilterTeam}
+            onPersonChange={setFilterPerson}
+            selectedTeam={filterTeam}
+            selectedPerson={filterPerson}
+            visibleMembers={visibleMembers}
+          />
+          {canAssignTasks(user) && (
+            <button
+              onClick={() => router.push('/work-tracker?action=allocate')}
+              className="btn-primary flex items-center gap-1.5 h-11"
+            >
+              <Plus className="h-4 w-4" />
+              Allocate Work
+            </button>
+          )}
+        </div>
 
         {/* Work Distribution */}
         <Card className="border-border">
