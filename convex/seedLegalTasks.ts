@@ -1,4 +1,5 @@
-import { internalMutation } from "./_generated/server";
+import { mutation } from "./_generated/server";
+import { v } from "convex/values";
 
 const LEGAL_TASKS = [
   { title: "RBI Regulatory Framework Review", assignee: "Vinisha", assigneeRole: "Legal Intern", priority: "high", comments: "Review RBI regulations applicable to payment systems, payment aggregators, payment gateways, cross-border payments, remittances, prepaid instruments, KYC, AML, merchant onboarding, grievance handling, transaction controls, and governance." },
@@ -47,10 +48,12 @@ const LEGAL_TASKS = [
 ];
 
 // Seed all 43 legal tasks
-export const seedLegalTasks = internalMutation({
+export const seed = mutation({
   args: {},
   handler: async (ctx) => {
-    const dueDate = "2026-06-26"; // 2 days from now
+    // 3 days from now
+    const targetDate = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+    const dueDate = targetDate.toISOString().split("T")[0];
     let count = 0;
 
     for (const task of LEGAL_TASKS) {
@@ -74,13 +77,13 @@ export const seedLegalTasks = internalMutation({
           dueDate,
           priority: task.priority,
           comments: task.comments,
-          owner: "Siddharatha",
-          createdBy: "Siddharatha",
+          owner: "Siddhartha",
+          createdBy: "Siddhartha",
         } as any);
         count++;
       }
     }
 
-    console.log(`Seeded ${count} legal tasks (skipped ${LEGAL_TASKS.length - count} existing)`);
+    return count;
   },
 });

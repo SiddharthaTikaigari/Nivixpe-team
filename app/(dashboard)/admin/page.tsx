@@ -30,6 +30,7 @@ export default function AdminPage() {
   const router = useRouter();
   const [isCleaning, setIsCleaning] = useState(false);
   const [isRecalculating, setIsRecalculating] = useState(false);
+  const [isSeeding, setIsSeeding] = useState(false);
 
   const allTasks = useQuery(api.workTasks.getAll) || [];
   const allMembers = useQuery(api.teamMembers.getAll) || [];
@@ -44,6 +45,7 @@ export default function AdminPage() {
   const createTask = useMutation(api.workTasks.create);
   const backfillDrive = useMutation(api.driveDocuments.backfillFileSizes);
   const backfillProof = useMutation(api.proofOfWork.backfillFileSizes);
+  const seedLegalTasks = useMutation(api.seedLegalTasks.seed);
 
   const hasAccess = canAccessAdminPanel(user);
 
@@ -179,7 +181,7 @@ export default function AdminPage() {
             <p className="text-sm text-purple-900">
               Welcome, {user.name}. You have full admin access to manage work assignments, view every team member&apos;s complete tracker, and run system cleanup.
             </p>
-            <div className="mt-4">
+            <div className="mt-4 flex flex-wrap gap-4">
               <button
                 onClick={handleCleanup}
                 disabled={isCleaning}
@@ -187,6 +189,25 @@ export default function AdminPage() {
               >
                 <RefreshCw className={cn('h-4 w-4', isCleaning && 'animate-spin')} />
                 {isCleaning ? 'Cleaning...' : 'Cleanup Duplicate Data'}
+              </button>
+              
+              <button
+                onClick={async () => {
+                  setIsSeeding(true);
+                  try {
+                    const count = await seedLegalTasks();
+                    toast.success(`Successfully assigned ${count} new legal tasks to Vinisha and Kashish!`);
+                  } catch (e) {
+                    toast.error('Failed to assign tasks. Please try again.');
+                  } finally {
+                    setIsSeeding(false);
+                  }
+                }}
+                disabled={isSeeding}
+                className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition-all shadow-lg shadow-indigo-200 disabled:opacity-50"
+              >
+                <AlertCircle className={cn('h-4 w-4', isSeeding && 'animate-spin')} />
+                {isSeeding ? 'Assigning...' : 'Assign Legal Sprint Tasks'}
               </button>
             </div>
           </CardContent>
