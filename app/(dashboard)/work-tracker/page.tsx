@@ -394,150 +394,6 @@ function WorkTrackerContent() {
       />
 
       <div className="p-6 space-y-6">
-        {/* Inline Allocate Work Form */}
-        {canAssignTasks(user) && (
-          <Card className="border-blue-200 bg-gradient-to-br from-blue-50/50 to-indigo-50/50 shadow-sm">
-            <CardHeader className="pb-3 border-b border-blue-100/50 bg-white/50">
-              <CardTitle className="flex items-center gap-2 text-blue-900 text-lg">
-                <Plus className="h-5 w-5 text-blue-600" />
-                Allocate New Task
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-5 space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Assign To</label>
-                  <select
-                    className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm bg-white shadow-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none"
-                    value={selectedAssignee}
-                    onChange={(e) => setSelectedAssignee(e.target.value)}
-                  >
-                    <option value="" disabled>Select a team member...</option>
-                    {getAssignableMembers(user, TEAM_MEMBERS).map((m) => (
-                      <option key={m.id} value={m.name}>
-                        {m.name} ({m.role})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Task Title</label>
-                  <input
-                    type="text"
-                    className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm bg-white shadow-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none"
-                    placeholder="E.g. Prepare Q3 Marketing Report"
-                    value={taskForm.title}
-                    onChange={(e) => setTaskForm({ ...taskForm, title: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="block text-sm font-semibold text-gray-700">Due Date</label>
-                    <label className="flex items-center gap-1.5 text-xs font-medium text-gray-600 cursor-pointer hover:text-blue-600 transition-colors">
-                      <input
-                        type="checkbox"
-                        checked={taskForm.dueDate === 'Ongoing'}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setTaskForm({ ...taskForm, dueDate: 'Ongoing' });
-                          } else {
-                            setTaskForm({ ...taskForm, dueDate: new Date().toISOString().split('T')[0] });
-                          }
-                        }}
-                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                      />
-                      Mark as Ongoing
-                    </label>
-                  </div>
-                  <input
-                    type="date"
-                    className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm bg-white shadow-sm disabled:bg-gray-50 disabled:text-gray-400 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none"
-                    value={taskForm.dueDate === 'Ongoing' ? '' : taskForm.dueDate}
-                    disabled={taskForm.dueDate === 'Ongoing'}
-                    onChange={(e) => setTaskForm({ ...taskForm, dueDate: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Priority</label>
-                  <select 
-                    className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm bg-white shadow-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none"
-                    value={taskForm.priority}
-                    onChange={(e) => setTaskForm({ ...taskForm, priority: e.target.value as 'high' | 'medium' | 'low' })}
-                  >
-                    <option value="high">🔴 High Priority</option>
-                    <option value="medium">🟡 Medium Priority</option>
-                    <option value="low">🟢 Low Priority</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Coordination With (Optional)</label>
-                  <select
-                    className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm bg-white shadow-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none"
-                    value={taskForm.coordinationWith}
-                    onChange={(e) => setTaskForm({ ...taskForm, coordinationWith: e.target.value })}
-                  >
-                    <option value="">None needed</option>
-                    {TEAM_MEMBERS.filter(m => m.name !== selectedAssignee).map(member => (
-                      <option key={member.id} value={member.name}>
-                        {member.name} ({member.role})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Comments / Description</label>
-                  <textarea
-                    className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm bg-white shadow-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none resize-none"
-                    rows={2}
-                    placeholder="Add task details, links, or specific instructions..."
-                    value={taskForm.comments}
-                    onChange={(e) => setTaskForm({ ...taskForm, comments: e.target.value })}
-                  />
-                </div>
-              </div>
-              
-              <div className="flex justify-end pt-2">
-                <button
-                  onClick={async () => {
-                    if (!taskForm.title.trim() || !selectedAssignee || !taskForm.dueDate) {
-                      toast.error('Please fill in all required fields (Assignee, Title, and Due Date)');
-                      return;
-                    }
-                    const assigneeMember = TEAM_MEMBERS.find(m => m.name === selectedAssignee);
-                    if (!assigneeMember) return toast.error('Invalid assignee');
-
-                    try {
-                      await createTask({
-                        title: taskForm.title.trim(),
-                        assignee: selectedAssignee,
-                        assigneeRole: assigneeMember.role,
-                        status: 'ongoing',
-                        dueDate: taskForm.dueDate,
-                        priority: taskForm.priority,
-                        comments: taskForm.comments.trim(),
-                        coordinationWith: taskForm.coordinationWith || undefined,
-                        createdBy: user?.name || 'Unknown',
-                        owner: user?.name,
-                      });
-                      
-                      setTaskForm({ title: '', dueDate: '', priority: 'medium', comments: '', coordinationWith: '' });
-                      setSelectedAssignee('');
-                      toast.success('Task allocated successfully!');
-                    } catch (error) {
-                      toast.error('Failed to allocate task.');
-                    }
-                  }}
-                  className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold transition-all shadow-sm disabled:bg-blue-300 disabled:cursor-not-allowed flex items-center gap-2"
-                  disabled={!taskForm.title || !taskForm.dueDate || !selectedAssignee}
-                >
-                  <CheckCircle className="h-4 w-4" />
-                  Allocate Task
-                </button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
         {/* CEO/CTO Overview */}
         {(user?.isSuperAdmin || user?.role === 'CTO') && (
           <Card className="border-blue-300 bg-blue-50">
@@ -599,11 +455,26 @@ function WorkTrackerContent() {
             selectedPerson={filterPerson}
             visibleMembers={TEAM_MEMBERS.filter(m => allAssignees.includes(m.name))}
             extraFilters={
-              <div className="flex items-center gap-2 bg-white px-4 py-2 border rounded-xl shadow-sm cursor-pointer ml-auto" onClick={() => setShowCompletedTasks(!showCompletedTasks)}>
-                <div className={`w-10 h-6 rounded-full transition-colors flex items-center ${showCompletedTasks ? 'bg-blue-600' : 'bg-slate-300'}`}>
-                  <div className={`w-4 h-4 bg-white rounded-full transition-transform transform ${showCompletedTasks ? 'translate-x-5' : 'translate-x-1'}`} />
+              <div className="flex items-center gap-4 ml-auto">
+                <div className="flex items-center gap-2 bg-white px-4 py-2 border rounded-xl shadow-sm cursor-pointer" onClick={() => setShowCompletedTasks(!showCompletedTasks)}>
+                  <div className={`w-10 h-6 rounded-full transition-colors flex items-center ${showCompletedTasks ? 'bg-blue-600' : 'bg-slate-300'}`}>
+                    <div className={`w-4 h-4 bg-white rounded-full transition-transform transform ${showCompletedTasks ? 'translate-x-5' : 'translate-x-1'}`} />
+                  </div>
+                  <span className="text-sm font-medium text-slate-700 select-none">Show Completed Tasks</span>
                 </div>
-                <span className="text-sm font-medium text-slate-700 select-none">Show Completed Tasks</span>
+                {canAssignTasks(user) && (
+                  <button
+                    onClick={() => {
+                      setSelectedAssignee('');
+                      setTaskForm({ title: '', dueDate: '', priority: 'medium', comments: '', coordinationWith: '' });
+                      setShowAddTaskModal(true);
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors shadow-sm whitespace-nowrap"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Allocate Task
+                  </button>
+                )}
               </div>
             }
           />
